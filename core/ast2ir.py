@@ -3,6 +3,8 @@ import torch
 from core.ast import *
 from core.ir import *
 from opt.loop import *
+from core.helpers import *
+
 
 
 def bind(arr: (Ndarray, Index), index, nref=False):
@@ -27,6 +29,73 @@ def get_ir_of_size(size):
         ir_size.append(s.eval)
     return ir_size
 
+
+def get_pos_in_list(l, target):
+	for i in range(0, len(l)):
+		if l[i] == target:
+			return i
+	return -1
+
+def enisum(equation: str, node):
+	equation = equation.replace(' ', '')
+	op0_idx = equation.split("->")[0].split(",")[0]
+	op1_idx = equation.split("->")[0].split(",")[1]
+	res_idx = equation.split("->")[1]
+	all_idx = list(set(op0_idx+op1_idx+res_idx))
+
+	op0_map = {}
+	op1_map = {}
+	res_map = {}
+	for i in all_idx:
+		op0_map[i] = get_pos_in_list(list(op0_idx), i)
+		op1_map[i] = get_pos_in_list(list(op1_idx), i)
+		res_map[i] = get_pos_in_list(list(res_idx), i)
+	
+	loop_array = []
+	reverse_map = {}
+	for i in range(0, len(all_idx)):
+		this_idx = all_idx[i]
+		reverse_map[this_idx] = i
+		if op0_map[this_idx]!=-1:
+			loop_array.append(Loop(0, node.operators[0].eval.size[op0_map[this_idx]], 1, []))
+		elif op1_map[this_idx]!=-1:
+			loop_array.append(Loop(0, node.operators[1].eval.size[op1_map[this_idx]], 1, []))
+		
+		if res_map[this_idx]!=-1:
+			pass
+			
+	# print(reverse_map)
+	# for l in loop_array:
+	# 	print(to_string(l))
+	
+	op0 = node.operators[0].eval
+	for i in list(op0_idx):
+		idx = reverse_map[i]
+		op0 = Index(op0, loop_array[idx].iterate)
+	
+	op1 = node.operators[1].eval
+	for i in list(op1_idx):
+		idx = reverse_map[i]
+		op1 = Index(op1, loop_array[idx].iterate)
+	
+	size = get_ir_of_size(node._size())
+	node.eval = Ndarray(node.dtype, size)
+	node.decl = [Decl(node.eval)]
+	res = node.eval
+	for i in list(res_idx):
+		idx = reverse_map[i]
+		res = Index(res, loop_array[idx].iterate)
+
+	body = Assignment(res, Expr(op0, op1, '*'), '+')
+
+	pre_loop = loop_array[0]
+	node.compute = [pre_loop]
+	for i in range(1, len(loop_array)):
+		loop = loop_array[i]
+		pre_loop.body.append(loop)
+		pre_loop = loop
+	pre_loop.body.append(body)
+	# print(to_string(node.compute[0]))
 
 
 def gen_ir(node):
@@ -102,6 +171,11 @@ def gen_ir(node):
                     node.decl = [Decl(node.eval)]
                     node.compute = [Assignment(node.eval, Expr(node.operators[0].eval, node.operators[1].eval, op_mapping[node.op_type]))]
 
+        elif node.op_type == 'matmul':
+            gen_ir(node.operators[0])
+            gen_ir(node.operators[1])
+            enisum("ik,kj->ij", node)
+            
 
         elif node.op_type == 'index':
             gen_ir(node.operators[0])

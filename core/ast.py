@@ -147,6 +147,9 @@ class Tensor(ASTNode):
 
     def __floordiv__(self, other):
         return TensorOp('floordiv', self, other)
+	
+    def __matmul__(self, other):
+        return TensorOp('matmul', self, other)
 
     def __getitem__(self, idx):
         if isinstance(idx, (int, slice, Tensor)):
@@ -244,7 +247,7 @@ class Const(Var):
 
 
 class TensorOp(Tensor):
-    Types = ['index', 'apply', 'reduce'] + list(op_mapping.keys())
+    Types = ['index', 'apply', 'reduce'] + ['matmul'] + list(op_mapping.keys())
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -261,6 +264,13 @@ class TensorOp(Tensor):
                 self.operators[1] = Const(operators[1], 'int')
             elif type(operators[1]) == float:
                 self.operators[1] = Const(operators[1], 'float')
+        
+        elif op_type == 'matmul':
+            op1_size = operators[0].fix_size + operators[0].ref_size
+            op2_size = operators[1].fix_size + operators[1].ref_size
+            assert len(op1_size)==2 and len(op2_size)==2
+            ref_size = [op1_size[0], op2_size[1]]
+            fix_size = []
 
         elif op_type == 'index':
             ref_size = operators[0].ref_size[1:]

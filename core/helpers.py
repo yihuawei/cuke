@@ -1,5 +1,6 @@
 from core.ast2ir import *
 from ext.set import *
+from codegen.cpu import *
 
 class Traversal:
 
@@ -54,3 +55,4 @@ def get_input_nodes(ast):
 
     t = Traversal(action)
     return dict(t(ast))
+

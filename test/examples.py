@@ -655,3 +655,11 @@ def conv1d_v2(width):
     code = codegen.cpu.gen_cpp(ir)
     print(code)
 
+def test_matmul():
+    A = Tensor('a', (100, 20))
+    B = Tensor('b', (20, 20))
+    C = A @ B
+    code = codegen.cpu.gen_cpp(gen_ir(C))
+
+    print(code)
+
