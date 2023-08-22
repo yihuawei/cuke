@@ -12,6 +12,15 @@ def PrintCCode(ir):
 			code += to_string(d)
 	print(code)
 
+# Original Loop:
+# int N;
+# torch::Tensor obj_A = torch::empty({N,N}, at::kInt);
+# auto A = obj_A.accessor<int, 2>();
+# for (int _l0 = 0; _l0 < N; _l0 += 1) {
+# 	for (int _l1 = 0; _l1 < N; _l1 += 1) {
+# 		A[_l0][_l1] = A[_l0 - 1][_l1 - 1] + 1;
+# 	} 
+# } 
 def BuildNestedLoopByIR():
 	ir = []
 
@@ -35,6 +44,15 @@ def BuildNestedLoopByIR():
 	return ir
 
 
+# Loop after applying interchange:
+# int N;
+# torch::Tensor obj_A = torch::empty({N,N}, at::kInt);
+# auto A = obj_A.accessor<int, 2>();
+# for (int _l1 = 0; _l1 < N; _l1 += 1) {
+# 	for (int _l0 = 0; _l0 < N; _l0 += 1) {
+# 		A[_l0][_l1] = A[_l0 - 1][_l1 - 1] + 1;
+# 	} 
+# } 
 def LoopInterchange(ir):
 	optimized_ir = []
 	for item in ir:
