@@ -656,10 +656,68 @@ def conv1d_v2(width):
     print(code)
 
 def test_matmul():
-    A = Tensor('a', (100, 20))
-    B = Tensor('b', (20, 20))
+    d1 = Var('d1')
+    d2 = Var('d2')
+    d3 = Var('d3')
+    A = Tensor('a', (d1, d2))
+    B = Tensor('b', (d2, d3))
     C = A @ B
-    code = codegen.cpu.gen_cpp(gen_ir(C))
+    ir = gen_ir(C)
+    code = codegen.cpu.gen_cpp(ir)
+    print(helpers.get_input_nodes(ir))
 
+
+    d1 = 100
+    d3 = 30
+    d2 = 20
+    A = torch.rand(d1, d2)
+    B = torch.rand(d2, d3)
+    res = run.cpu.compile_and_run(code, d1, d3, d2, A, B)
+    print(torch.equal(A @ B, res))
+
+
+def test_einsum1():
+    d1 = Var('d1')
+    d2 = Var('d2')
+    A = Tensor('a', (d1, ))
+    B = Tensor('b', (d2, ))
+    C = einsum('i,j->ij', A, B)
+    ir = gen_ir(C)
+    code = codegen.cpu.gen_cpp(ir)
+    print(helpers.get_input_nodes(ir))
+    # print(code)
+
+
+    d1 = 100
+    d3 = 30
+    d2 = 20
+    A = torch.rand(d1, )
+    B = torch.rand(d2, )
+    res = run.cpu.compile_and_run(code, d1, d2, A, B)
+    print(torch.equal(torch.einsum('i,j->ij', A, B), res))
+
+
+def test_einsum2():
+    d1 = Var('d1')
+    d2 = Var('d2')
+    d3 = Var('d3')
+    d4 = Var('d4')
+    A = Tensor('a', (d1, d2, d3))
+    B = Tensor('b', (d1, d3, d4))
+    C = einsum('bij,bjk->bik', A, B)
+    ir = gen_ir(C)
+    code = codegen.cpu.gen_cpp(ir)
+    print(helpers.get_input_nodes(ir))
     print(code)
 
+
+    d1 = 8
+    d2 = 20
+    d3 = 30
+    d4 = 10
+
+    A = torch.rand(d1, d2, d3)
+    B = torch.rand(d1, d3, d4)
+    res = run.cpu.compile_and_run(code, d1, d2, d4, d3, A, B)
+    res1 = torch.einsum('bij,bjk->bik', A, B)
+    print(torch.norm(res1 - res))

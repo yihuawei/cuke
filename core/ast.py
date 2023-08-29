@@ -149,7 +149,7 @@ class Tensor(ASTNode):
         return TensorOp('floordiv', self, other)
 	
     def __matmul__(self, other):
-        return TensorOp('matmul', self, other)
+        return TensorOp('einsum', self, other, 'ij,jk->ik')
 
     def __getitem__(self, idx):
         if isinstance(idx, (int, slice, Tensor)):
@@ -246,8 +246,11 @@ class Const(Var):
         self.val = val
 
 
+def einsum(exp: str, tensor1, tensor2):
+    return TensorOp('einsum', tensor1, tensor2, exp)
+
 class TensorOp(Tensor):
-    Types = ['index', 'apply', 'reduce'] + ['matmul'] + list(op_mapping.keys())
+    Types = ['index', 'apply', 'reduce', 'einsum'] + list(op_mapping.keys())
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -265,12 +268,24 @@ class TensorOp(Tensor):
             elif type(operators[1]) == float:
                 self.operators[1] = Const(operators[1], 'float')
         
-        elif op_type == 'matmul':
+        elif op_type == 'einsum':
+            exp = operators[2]
+            inputs, output = exp.split('->')
+            input1, input2 = inputs.split(',')
             op1_size = operators[0].fix_size + operators[0].ref_size
             op2_size = operators[1].fix_size + operators[1].ref_size
-            assert len(op1_size)==2 and len(op2_size)==2
-            ref_size = [op1_size[0], op2_size[1]]
+            ref_size = []
             fix_size = []
+            for i in output:
+                pos1 = input1.find(i)
+                if pos1 >= 0:
+                    ref_size.append(op1_size[pos1])
+                else:
+                    pos2 = input2.find(i)
+                    if pos2 >= 0:
+                        ref_size.append(op2_size[pos2])
+                    else:
+                        raise IndexError('index not found!')
 
         elif op_type == 'index':
             ref_size = operators[0].ref_size[1:]

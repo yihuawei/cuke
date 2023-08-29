@@ -3,7 +3,7 @@ from test import examples
 
 
 if __name__ == "__main__":
-    examples.test_matmul()
+    examples.test_einsum2()
 
 
 
