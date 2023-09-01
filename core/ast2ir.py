@@ -156,7 +156,7 @@ def gen_ir(node):
             gen_ir(node.operators[1])
             if type(node.operators[1]) == Var or (type(node.operators[1]) == Const and node.operators[1].dtype == 'int'):
                 node.eval = Index(node.operators[0].eval, index=node.operators[1].eval)
-            else:
+            else: # ind_arr can be a slice or Tensor
                 node.eval = Index(node.operators[0].eval, ind_arr=node.operators[1].eval)
 
         elif node.op_type == 'apply':

@@ -22,12 +22,11 @@ def to_string(ir):
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
         case 'Index':
-            assert ir.index != None
             if ir.ind_arr != None:
                 if type(ir.ind_arr) == Slice:
                     return f'{to_string(ir.dobject)}[(({to_string(ir.ind_arr.start)})+({to_string(ir.ind_arr.step)})*({to_string(ir.index)}))]'
-                else:
-                    return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr[to_string(ir.index)])}]'
+                else: # idx is a Tensor
+                    return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}]'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.index)}]'
         case 'Decl':

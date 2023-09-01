@@ -53,12 +53,7 @@ def has_same_value(e1, e2):
         if e1.op_type != e2.op_type:
             return False
         elif e1.op_type in op_mapping:
-            v1 = eval_const_expr(e1)
-            v2 = eval_const_expr(e2)
-            if v1 != None and v1 == v2:
-                return True
-            else:
-                return False
+            return has_same_value(e1.operators[0], e2.operators[0]) and has_same_value(e2.operators[1], e2.operators[1])
         else:
             if len(e1.operators) != len(e2.operators):
                 return False

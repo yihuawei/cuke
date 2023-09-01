@@ -559,13 +559,13 @@ def test28():
     res = run.cpu.compile_and_run(code, A)
     print(res - torch.sum(A, dim=1))
 
-def f29():
+def test29():
+    A = Tensor('A', (10, ))
+    B = Tensor('B', (10, ), dtype='int')
+    res = A[B[0]] + A[B[1]]
 
-    A = Set([1,2,3,4,5])
-    B = Set([1,2,3,4])
-    c = Var('lc', 'int')
-
-    return A.num_elem() + B.num_elem() + c
+    code = codegen.cpu.gen_cpp(gen_ir(res))
+    print(code)
 
 
 def f30():
@@ -721,3 +721,31 @@ def test_einsum2():
     res = run.cpu.compile_and_run(code, d1, d2, d4, d3, A, B)
     res1 = torch.einsum('bij,bjk->bik', A, B)
     print(torch.norm(res1 - res))
+
+def triangle_counting():
+    num_node = 10
+    num_edges = 20
+    max_degree = 20
+    rowptr = Tensor('rowptr', (num_node+1,), dtype='int')
+    rowidx = Tensor('rowidx', (num_edges,), dtype='int')
+    colidx = Tensor('colidx', (num_edges,), dtype='int')
+    edge_idx = Tensor('edge_idx', (num_edges,), dtype='int')
+
+    v0 = rowidx[0]
+    res = colidx[rowptr[v0]:rowptr[v0+1]] + colidx[rowptr[v0]:rowptr[v0+1]]
+
+
+
+    # def inner_triangle_counting(edge_id):
+    #     v0 = rowidx[edge_id]
+    #     # v1 = colidx[edge_id]
+    #     v0_nb = colidx[rowptr[v0]]
+    #     # v1_nb = colidx[rowptr[v1]:rowptr[v1+1]]
+    #     # v0_nb = Set(colidx[rowptr[v0]:rowptr[v0+1]])
+    #     # v1_nb = Set(colidx[rowptr[v1]:rowptr[v1+1]])
+    #     # res = v0_nb.intersect(v1_nb)
+    #     return v0_nb + v0_nb
+    #
+    # res = edge_idx.apply(inner_triangle_counting)
+    code = codegen.cpu.gen_cpp(gen_ir(res))
+    print(code)
