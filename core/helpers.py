@@ -1,6 +1,7 @@
 from core.ast2ir import *
 from ext.set import *
-from codegen.cpu import *
+import ext
+
 
 class Traversal:
 
@@ -40,6 +41,10 @@ class Traversal:
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)
+        elif isinstance(node, ext.batch.ast.Batch):
+            self._post_traverse(node.base, visited, res)
+
+
 
     def __call__(self, ast):
         visited = set()

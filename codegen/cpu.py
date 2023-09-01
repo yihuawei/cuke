@@ -26,7 +26,10 @@ def to_string(ir):
                 if type(ir.ind_arr) == Slice:
                     return f'{to_string(ir.dobject)}[(({to_string(ir.ind_arr.start)})+({to_string(ir.ind_arr.step)})*({to_string(ir.index)}))]'
                 else: # idx is a Tensor
-                    return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}]'
+                    if ir.index == None:
+                        return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}]'
+                    else:
+                        return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}[{to_string(ir.index)}]]'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.index)}]'
         case 'Decl':
@@ -57,7 +60,7 @@ def to_string(ir):
             return str(ir)
 
 
-def gen_cpp(ast):
+def gen_cpp(ast, ir):
     code = ''
     def action(node, res):
         if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor or type(node) == Set:
@@ -65,13 +68,22 @@ def gen_cpp(ast):
         elif type(node) == TensorOp:
             res.extend(node.decl)
             res.extend(node.compute)
+        elif isinstance(node, ext.batch.ast.Batch):
+            gen_cpp(node.batch_size, res)
+            gen_cpp(node.base, res)
 
     t = helpers.Traversal(action)
-    ir = t(ast)
+    ir.extend(t(ast))
+
+def print_cpp(ast):
+    ir = []
+    gen_cpp(ast, ir)
+
 
     args = helpers.get_input_nodes(ast)
     args = ', '.join([f'torch::Tensor obj_{a}' if type(args[a]) == Tensor else f'{args[a].dtype} {a}' for a in args])
 
+    code = ''
     for d in ir:
         if d:
             code += to_string(d)

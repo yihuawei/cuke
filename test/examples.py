@@ -1,9 +1,7 @@
-import torch
-
 from core.ast2ir import *
 import run
-import codegen
 from core import helpers
+import codegen
 
 
 def test1():
@@ -14,7 +12,7 @@ def test1():
         return A + B - C
 
     ast = func()
-    code = codegen.cpu.gen_cpp(gen_ir(ast))
+    code = codegen.cpu.print_cpp(ast._gen_ir())
 
     A = torch.rand(10, 10)
     B = torch.rand(10, 10)
@@ -33,7 +31,7 @@ def test2():
         return m[i] + t
 
     ast = func()
-    code = codegen.cpu.gen_cpp(gen_ir(ast))
+    code = codegen.cpu.print_cpp(ast._gen_ir())
 
     n = 10
     m = torch.rand(n, 2)
@@ -60,7 +58,7 @@ def test3():
     j = 1
     t = torch.rand(A[i][j].shape)
 
-    d = run.cpu.compile_and_run(codegen.cpu.gen_cpp(gen_ir(ast)), A, i, j, t)
+    d = run.cpu.compile_and_run(codegen.cpu.print_cpp(gen_ir(ast)), A, i, j, t)
     print(torch.equal(A[i][j] + t, d))
 
 
@@ -72,7 +70,7 @@ def test4():
 
     ast = A[i] + t
     ir = gen_ir(ast)
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     A = torch.rand(10)
     i = 1
@@ -94,7 +92,7 @@ def test6():
     ast = A[idx] + t
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10)
     idx = torch.IntTensor(5)
     t = torch.rand(A[idx].shape)
@@ -113,7 +111,7 @@ def test7():
     ast = A[idx] + t
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 10)
     idx = torch.IntTensor(5)
     t = torch.rand(A[idx].shape)
@@ -131,7 +129,7 @@ def test8():
     ast = A[0][idx] + t
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 10)
     idx = torch.IntTensor(5)
     t = torch.rand(A[0][idx].shape)
@@ -150,7 +148,7 @@ def test9():
     ast = A[i][j] + t
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 10)
     i = torch.IntTensor(5)
     j = torch.IntTensor(4)
@@ -172,7 +170,7 @@ def test10():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 11, 12)
     i = torch.IntTensor(5)
     x = 2
@@ -197,7 +195,7 @@ def test11():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 11, 12)
     i = torch.IntTensor(5)
     x = 2
@@ -227,7 +225,7 @@ def test12():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     s1 = 10
     s2 = 20
     s3 = 30
@@ -259,7 +257,7 @@ def test13():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     s1 = 10
     s2 = 20
     A = torch.rand(s1, s2)
@@ -285,7 +283,7 @@ def test14():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     s1 = 10
     A = torch.randint(5, 10, (s1, ), dtype=torch.int)
     B = torch.rand(A[0], A[1])
@@ -307,7 +305,7 @@ def test15():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(100)
     B = torch.rand(100)
     d = run.cpu.compile_and_run(code, A, B)
@@ -327,7 +325,7 @@ def test16():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(100, 20)
     B = torch.rand(100, 20)
     d = run.cpu.compile_and_run(code, A, B)
@@ -344,7 +342,7 @@ def test17():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(100, 20)
     B = torch.rand(100, 20)
     d = run.cpu.compile_and_run(code, A, B)
@@ -370,7 +368,7 @@ def test19():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     A = torch.rand(100, 20)
     B = torch.rand(100, 20)
     b1 = 4
@@ -394,7 +392,7 @@ def test20():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     d = 7
     A = torch.rand(100, 20, d)
     B = torch.rand(100, 20, d)
@@ -434,7 +432,7 @@ def test22():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     d = 7
     c = 6
     D = torch.randint(10, 15, (10, ), dtype=torch.int)
@@ -458,7 +456,7 @@ def test23():
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     d1 = 10
     d2 = 20
@@ -489,7 +487,7 @@ def test24():
     ir = gen_ir(res)
     print(helpers.get_input_nodes(ir))
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     nnodes = 100
     max_d = 50
@@ -513,7 +511,7 @@ def test25():
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
 
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     d1 = 10
     d2 = 20
@@ -529,7 +527,7 @@ def test26():
     ast = A.sum(axis=0)
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     A = torch.rand(10)
     init = 0.0
@@ -542,7 +540,7 @@ def test27():
     ast = A.reduce(lambda a,b: a+b, init, axis=0)
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     A = torch.rand(10, 20)
     res = run.cpu.compile_and_run(code, A)
@@ -553,7 +551,7 @@ def test28():
     ast = A.sum(axis=1)
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
 
     A = torch.rand(10, 20, 5)
     res = run.cpu.compile_and_run(code, A)
@@ -564,7 +562,7 @@ def test29():
     B = Tensor('B', (10, ), dtype='int')
     res = A[B[0]] + A[B[1]]
 
-    code = codegen.cpu.gen_cpp(gen_ir(res))
+    code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)
 
 
@@ -642,7 +640,7 @@ def conv1d_v1():
     ast = A[0:97] + A[1:98] + A[2:99]
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     print(code)
 
 def conv1d_v2(width):
@@ -652,7 +650,7 @@ def conv1d_v2(width):
         res = res + A[i:i+97]
     ir = gen_ir(res)
     print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     print(code)
 
 def test_matmul():
@@ -663,7 +661,7 @@ def test_matmul():
     B = Tensor('b', (d2, d3))
     C = A @ B
     ir = gen_ir(C)
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     print(helpers.get_input_nodes(ir))
 
 
@@ -683,7 +681,7 @@ def test_einsum1():
     B = Tensor('b', (d2, ))
     C = einsum('i,j->ij', A, B)
     ir = gen_ir(C)
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     print(helpers.get_input_nodes(ir))
     # print(code)
 
@@ -706,7 +704,7 @@ def test_einsum2():
     B = Tensor('b', (d1, d3, d4))
     C = einsum('bij,bjk->bik', A, B)
     ir = gen_ir(C)
-    code = codegen.cpu.gen_cpp(ir)
+    code = codegen.cpu.print_cpp(ir)
     print(helpers.get_input_nodes(ir))
     print(code)
 
@@ -747,5 +745,5 @@ def triangle_counting():
     #     return v0_nb + v0_nb
     #
     # res = edge_idx.apply(inner_triangle_counting)
-    code = codegen.cpu.gen_cpp(gen_ir(res))
+    code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)

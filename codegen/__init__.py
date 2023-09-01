@@ -1,1 +1,1 @@
-from codegen import cpu
+import codegen.cpu

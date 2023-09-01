@@ -1,4 +1,4 @@
-
+import core
 def is_int_var(v):
     return isinstance(v, Tensor) and v.dtype == 'int' and len(v._size()) == 0
 
@@ -62,27 +62,6 @@ def has_same_value(e1, e2):
                     if not has_same_value(e1.operators[i], e2.operators[i]):
                         return False
     return True
-
-# def get_list_size(l, s):
-#     if type(l) == list or type(l) == tuple:
-#         s.append(len(l))
-#         t = l[0]
-#         for i in range(1, len(l)):
-#             if type(t) == list or type(t) == tuple:
-#                 assert (type(l[i])==list or type(l[i])==tuple) and len(t) == len(l[i])
-#         get_list_size(t, s)
-#     else:
-#         assert is_scalar(l)
-
-
-# def dump_values(l, s):
-#     if type(l) == list or type(l) == tuple:
-#         for m in l:
-#             dump_values(m, s)
-#     else:
-#         assert is_scalar(l)
-#         s.append(l)
-#
 
 def is_same_size(s1, s2):
     if(len(s1) != len(s2)):
@@ -196,6 +175,8 @@ class Tensor(ASTNode):
         else:
             return Const(0, dtype='int')
 
+    def _gen_ir(self):
+        return core.ast2ir.gen_ir(self)
 
 class Ones(Tensor):
     nones = 0
