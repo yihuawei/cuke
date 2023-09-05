@@ -1,7 +1,5 @@
 from core.ast2ir import *
-from ext.set import *
-import ext
-
+import batch
 
 class Traversal:
 
@@ -29,10 +27,10 @@ class Traversal:
             for s in node.ref_size:
                 self._post_traverse(s, visited, res)
             self.action(node, res)
-        elif type(node) == Set:
-            self._post_traverse(node.storage, visited, res)
-            self._post_traverse(node.nelem, visited, res)
-            self.action(node, res)
+        # elif type(node) == Set:
+        #     self._post_traverse(node.storage, visited, res)
+        #     self._post_traverse(node.nelem, visited, res)
+        #     self.action(node, res)
         elif type(node) == TensorOp:
             for s in node.fix_size:
                 self._post_traverse(s, visited, res)
@@ -41,10 +39,12 @@ class Traversal:
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)
-        elif isinstance(node, ext.batch.ast.Batch):
+        elif type(node) == batch.ast.Batch:
             self._post_traverse(node.base, visited, res)
-
-
+        elif type(node) == batch.ast.BatchOp:
+            for c in node.operators:
+                self._post_traverse(c, visited, res)
+            self.action(node, res)
 
     def __call__(self, ast):
         visited = set()
@@ -54,10 +54,17 @@ class Traversal:
 
 def get_input_nodes(ast):
     def action(node, res):
-        if type(node) == Var or type(node) == Tensor or type(node) == Set:
+        if type(node) == Var or type(node) == Tensor:
             if node.is_arg:
                 res.append([node.name, node])
 
     t = Traversal(action)
     return dict(t(ast))
 
+def get_ir_of_size(size):
+    ir_size = []
+    for s in size:
+        assert isinstance(s, ASTNode)
+        s._gen_ir()
+        ir_size.append(s.eval)
+    return ir_size

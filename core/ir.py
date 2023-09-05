@@ -102,7 +102,10 @@ class Index(IR):
         self.index = index
         self.ind_arr = ind_arr
         self.dtype = self.dobject.dtype
-        self.size = dobject.size[1:]
+        if ind_arr == None:
+            self.size = dobject.size[1:]
+        elif type(ind_arr) == Ndarray: # TODO: if ind_arr is slice, how to determine size?
+            self.size = ind_arr.size + dobject.size[1:]
         self.index_id = Index.nindices
         Index.nindices += 1
 

@@ -1,4 +1,5 @@
 import core
+import copy
 def is_int_var(v):
     return isinstance(v, Tensor) and v.dtype == 'int' and len(v._size()) == 0
 
@@ -41,7 +42,7 @@ def has_same_value(e1, e2):
     if type(e1) != type(e2):
         return False
     elif type(e1) == Var or type(e1) == Tensor:
-        return e1 == e2
+        return e1.id == e2.id
     elif type(e1) == Const:
         if e1.dtype == 'int' and e2.dtype == 'int':
             return e1.val == e2.val
@@ -79,11 +80,14 @@ op_mapping = {'add':'+', 'sub':'-', 'mul':'*', 'floordiv':'/', 'truediv':'/'}
 
 
 class ASTNode:
-
+    nuniq = 0
     def __init__(self):
         self.decl = []
         self.compute = []
         self.eval = None
+        self.ref_count = 0
+        self.id = ASTNode.nuniq
+        ASTNode.nuniq += 1
 
 
 class Tensor(ASTNode):
@@ -233,23 +237,35 @@ class TensorOp(Tensor):
 
          # TODO: infer result data type
         dtype = operators[0].dtype
-        self.operators = list(operators)
+        self.operators = []
+        for opr in operators:
+            if type(opr) == TensorOp and opr.op_type == 'index' and opr.ref_count >= 1:
+                new_opr = copy.copy(opr)
+                new_opr.ref_count = 1
+                new_opr.eval = None
+                new_opr.decl.clear()
+                new_opr.compute.clear()
+                self.operators.append(new_opr)
+            else:
+                self.operators.append(opr)
+                if isinstance(opr, ASTNode):
+                    opr.ref_count += 1
 
         # TODO: implement scalar +/-/*/div tensor
         if op_type in op_mapping:
-            ref_size = operators[0].fix_size + operators[0].ref_size
+            ref_size = self.operators[0].fix_size + self.operators[0].ref_size
             fix_size = []
-            if type(operators[1]) == int:
-                self.operators[1] = Const(operators[1], 'int')
+            if type(self.operators[1]) == int:
+                self.operators[1] = Const(self.operators[1], 'int')
             elif type(operators[1]) == float:
-                self.operators[1] = Const(operators[1], 'float')
+                self.operators[1] = Const(self.operators[1], 'float')
         
         elif op_type == 'einsum':
-            exp = operators[2]
+            exp = self.operators[2]
             inputs, output = exp.split('->')
             input1, input2 = inputs.split(',')
-            op1_size = operators[0].fix_size + operators[0].ref_size
-            op2_size = operators[1].fix_size + operators[1].ref_size
+            op1_size = self.operators[0].fix_size + self.operators[0].ref_size
+            op2_size = self.operators[1].fix_size + self.operators[1].ref_size
             ref_size = []
             fix_size = []
             for i in output:
@@ -264,22 +280,22 @@ class TensorOp(Tensor):
                         raise IndexError('index not found!')
 
         elif op_type == 'index':
-            ref_size = operators[0].ref_size[1:]
-            fix_size = operators[0].fix_size[:]
-            if type(operators[1]) == int:
-                self.operators[1] = Const(operators[1], 'int')
-            elif type(operators[1]) == slice:
-                start = operators[1].start
+            ref_size = self.operators[0].ref_size[1:]
+            fix_size = self.operators[0].fix_size[:]
+            if type(self.operators[1]) == int:
+                self.operators[1] = Const(self.operators[1], 'int')
+            elif type(self.operators[1]) == slice:
+                start = self.operators[1].start
                 if start == None:
                     start = Const(0, 'int')
                 elif type(start) == int:
                     start = Const(start, 'int')
-                stop = operators[1].stop
+                stop = self.operators[1].stop
                 if stop == None:
-                    stop = operators[0].ref_size[0]
+                    stop = self.operators[0].ref_size[0]
                 elif type(stop) == int:
                     stop = Const(stop, 'int')
-                step = operators[1].step
+                step = self.operators[1].step
                 if step == None:
                     step = Const(1, 'int')
                 elif type(step) == int:
@@ -287,47 +303,47 @@ class TensorOp(Tensor):
 
                 self.operators[1] = Const(slice(start, stop, step), 'slice')
                 fix_size.append((stop - start)//step)
-            elif is_int_var(operators[1]):
-                self.operators[1] = operators[1]
-            elif is_1dint_tensor(operators[1]):
-                fix_size.append(operators[1].ref_size[0])
+            elif is_int_var(self.operators[1]):
+                self.operators[1] = self.operators[1]
+            elif is_1dint_tensor(self.operators[1]):
+                fix_size.append(self.operators[1].ref_size[0])
             else:
                 raise TypeError('index must be int, Var of int, or 1d int Tensor')
 
         elif op_type == 'apply':
-            assert type(operators[2]) == int
-            axis = operators[2]
+            assert type(self.operators[2]) == int
+            axis = self.operators[2]
             self.operators[2] = Const(axis, 'int')
             # size cannot be determined except for axis dimension, so set -1
-            ref_size = [operators[0]._size()[axis], -1]
+            ref_size = [self.operators[0]._size()[axis], -1]
             fix_size = []
             # data type also cannot be determined
             dtype = None
 
-            data_size = operators[0]._size()
+            data_size = self.operators[0]._size()
             item_size = data_size[:axis] + data_size[axis + 1:]
             if (len(item_size) > 0):
-                item = Tensor(f'item_of_{operators[0].name}', item_size,
-                              operators[0].dtype, [], False)
+                item = Tensor(f'item_of_{self.operators[0].name}', item_size,
+                              self.operators[0].dtype, [], False)
             else:
-                item = Var(f'item_of_{operators[0].name}', operators[0].dtype, False)
+                item = Var(f'item_of_{self.operators[0].name}', self.operators[0].dtype, False)
             self.operators.append(item)
 
         elif op_type == 'reduce':
-            assert type(operators[3]) == int
-            axis = operators[3]
+            assert type(self.operators[3]) == int
+            axis = self.operators[3]
             self.operators[3] = Const(axis, 'int')
-            ref_size = operators[0]._size()[:axis] + operators[0]._size()[axis+1:]
+            ref_size = self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
             fix_size = []
-            dtype = operators[0].dtype
+            dtype = self.operators[0].dtype
             if (len(ref_size) > 0):
-                item1 = Tensor(f'item1_of_{operators[0].name}', ref_size,
-                               operators[0].dtype, [], False)
-                item2 = Tensor(f'item2_of_{operators[0].name}', ref_size,
-                               operators[0].dtype, [], False)
+                item1 = Tensor(f'item1_of_{self.operators[0].name}', ref_size,
+                               self.operators[0].dtype, [], False)
+                item2 = Tensor(f'item2_of_{self.operators[0].name}', ref_size,
+                               self.operators[0].dtype, [], False)
             else:
-                item1 = Var(f'item1_of_{operators[0].name}', operators[0].dtype, False)
-                item2 = Var(f'item2_of_{operators[0].name}', operators[0].dtype, False)
+                item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)
+                item2 = Var(f'item2_of_{self.operators[0].name}', self.operators[0].dtype, False)
             self.operators.append(item1)
             self.operators.append(item2)
 

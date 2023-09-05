@@ -1,6 +1,6 @@
 from core.ast2ir import *
 from core import helpers
-from ext.set import *
+import batch
 
 
 def to_string(ir):
@@ -61,16 +61,15 @@ def to_string(ir):
 
 
 def gen_cpp(ast, ir):
-    code = ''
     def action(node, res):
-        if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor or type(node) == Set:
+        if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
             res.extend(node.decl)
         elif type(node) == TensorOp:
             res.extend(node.decl)
             res.extend(node.compute)
-        elif isinstance(node, ext.batch.ast.Batch):
-            gen_cpp(node.batch_size, res)
-            gen_cpp(node.base, res)
+        elif type(node) == batch.ast.BatchOp:
+            res.extend(node.decl)
+            res.extend(node.compute)
 
     t = helpers.Traversal(action)
     ir.extend(t(ast))
@@ -96,7 +95,7 @@ def print_cpp(ast):
         rtype = 'torch::Tensor'
         code += f'return obj_{ast.eval.name()};\n'
     else:
-        raise TypeError('wrong output type')
+        raise TypeError('wrong output type', ast.eval)
 
     with open('codegen/cpp_template.cpp', 'r') as f:
         c_code = f.read()
