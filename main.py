@@ -8,6 +8,7 @@ if __name__ == "__main__":
     examples.test3()
     examples.test8()
     examples.test29()
+    examples.test30()
     examples.triangle_counting()
 
 
