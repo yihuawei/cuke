@@ -60,17 +60,17 @@ def to_string(ir):
             return str(ir)
 
 
-def gen_cpp(ast, ir):
-    def action(node, res):
-        if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
-            res.extend(node.decl)
-        elif type(node) == TensorOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
-        elif type(node) == batch.ast.BatchOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
+def action(node, res):
+	if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+		res.extend(node.decl)
+	elif type(node) == TensorOp:
+		res.extend(node.decl)
+		res.extend(node.compute)
+	elif type(node) == batch.ast.BatchOp:
+		res.extend(node.decl)
+		res.extend(node.compute)
 
+def gen_cpp(ast, ir):
     t = helpers.Traversal(action)
     ir.extend(t(ast))
 
