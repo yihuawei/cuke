@@ -3,9 +3,7 @@ import core
 from core.ast import *
 from core.ir import *
 from opt.loop import *
-import codegen.cpu as cpu
 import core.helpers as helpers
-import copy
 
 
 
@@ -13,10 +11,6 @@ def bind(arr: (Ndarray, Index), index, fix_ref=False):
     # fix_ref == True means index at current position instead of the first unbind
     if type(arr) == Ndarray or index == None or fix_ref:
         return Index(arr, index=index)
-    # elif type(arr) == Index:
-    #     new_idx = copy.deepcopy(arr)
-    #     new_idx.index = index
-    #     return new_idx
     else:
         ref_chain = [arr]
         while (type(ref_chain[-1].dobject) != Ndarray):
@@ -172,18 +166,28 @@ def gen_ir(node):
             ret = node.operators[1](item)
             ret._gen_ir()
 
-            t = helpers.Traversal(cpu.action)
+            def action(node, res):
+                if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+                    res.extend(node.decl)
+                    node.decl.clear()
+                elif type(node) == TensorOp:
+                    res.extend(node.decl)
+                    res.extend(node.compute)
+                    node.decl.clear()
+                    node.compute.clear()
+
+            t = helpers.Traversal(action)
             ret_ir = t(ret)
             ret_decl = []
             ret_compute = []
 
             for ir in ret_ir:
-                if type(ir)==Decl:
+                if type(ir) == Decl:
                     ret_decl.append(ir)
                 else:
                     ret_compute.append(ir)
 
-            # node.operators.append(ret)
+            node.operators.append(ret)
             node.dtype = ret.dtype
             node.ref_size = [node._size()[0]] + ret._size()
             node.fix_size = []

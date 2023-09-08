@@ -730,7 +730,6 @@ def apply_test1():
     edge_idx = Tensor('edge_idx', (num_edges,), dtype='int')
 
     v0 = rowidx[0]
-    res = colidx[rowptr[v0]:rowptr[v0+1]] + colidx[rowptr[v0]:rowptr[v0+1]]
 
     def apply_func(edge_id):
         v0 = rowidx[edge_id]
@@ -782,9 +781,8 @@ def apply_test4():
     d1 = Var('d1')
     d2 = Var('d2')
     d3 = Var('d3')
-    A = Tensor('A', (d1, d2))
+    A = Tensor('A', (d1, d2), dtype='int')
     B = Tensor('B', (d2, ))
-    C = Tensor('C', (d3, ))
 
 
     def apply_func(item):
