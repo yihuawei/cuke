@@ -106,8 +106,8 @@ def RESCAL():
 
 
 if __name__ == "__main__":
-    # transE()
-    # transH()
-    # transR()
-    # transF()
+    transE()
+    transH()
+    transR()
+    transF()
     RESCAL()
