@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # examples.test8()
     # examples.test29()
     # examples.test30()
-    examples.apply_test4()
+    examples.apply_test3()
 
 
 

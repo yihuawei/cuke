@@ -192,7 +192,6 @@ def gen_ir(node):
             node.ref_size = [node._size()[0]] + ret._size()
             node.fix_size = []
             outer_loop.body.extend(ret_compute)
-            ret.compute.clear()
             size = core.helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
