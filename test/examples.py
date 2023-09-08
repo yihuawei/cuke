@@ -720,7 +720,7 @@ def test_einsum2():
     res1 = torch.einsum('bij,bjk->bik', A, B)
     print(torch.norm(res1 - res))
 
-def triangle_counting():
+def apply_test1():
     num_node = 10
     num_edges = 20
     max_degree = 20
@@ -732,18 +732,70 @@ def triangle_counting():
     v0 = rowidx[0]
     res = colidx[rowptr[v0]:rowptr[v0+1]] + colidx[rowptr[v0]:rowptr[v0+1]]
 
-
-
-    # def inner_triangle_counting(edge_id):
-    #     v0 = rowidx[edge_id]
-    #     # v1 = colidx[edge_id]
-    #     v0_nb = colidx[rowptr[v0]]
-    #     # v1_nb = colidx[rowptr[v1]:rowptr[v1+1]]
-    #     # v0_nb = Set(colidx[rowptr[v0]:rowptr[v0+1]])
-    #     # v1_nb = Set(colidx[rowptr[v1]:rowptr[v1+1]])
-    #     # res = v0_nb.intersect(v1_nb)
-    #     return v0_nb + v0_nb
-    #
-    # res = edge_idx.apply(inner_triangle_counting)
+    def apply_func(edge_id):
+        v0 = rowidx[edge_id]
+        v1 = colidx[edge_id] + 1
+        return v0 + v1
+    
+    res = edge_idx.apply(apply_func)
     code = codegen.cpu.print_cpp(gen_ir(res))
+    print(code)
+
+
+def apply_test2():
+    d1 = Var('d1')
+    d2 = Var('d2')
+    A = Tensor('A', (d1, d2))
+    B = Tensor('B', (d2, ))
+    ast = A.apply(lambda x: x+B, axis=0)
+    ir = gen_ir(ast)
+
+    code = codegen.cpu.print_cpp(ir)
+    print(code)
+
+
+def apply_test3():
+    d1 = Var('d1')
+    d2 = Var('d2')
+    d3 = Var('d3')
+    A = Tensor('A', (d1, d2), dtype='int')
+    B = Tensor('B', (d2, ), dtype='int')
+    C = Tensor('C', (d3, ), dtype='int')
+
+
+    def apply_func(item):
+        def apply_func2(item2):
+            print(type(item2))
+            return C[item2] + B[item2]
+        
+        return item.apply(apply_func2)
+		
+    ast = A.apply(apply_func)
+    ir = gen_ir(ast)
+
+    code = codegen.cpu.print_cpp(ir)
+    print(code)
+
+
+
+def apply_test4():
+    d1 = Var('d1')
+    d2 = Var('d2')
+    d3 = Var('d3')
+    A = Tensor('A', (d1, d2))
+    B = Tensor('B', (d2, ))
+    C = Tensor('C', (d3, ))
+
+
+    def apply_func(item):
+        def apply_func2(item2):
+            print(is_int_var(item2))
+            return B[item2]
+        
+        return item.apply(apply_func2)
+		
+    ast = A.apply(apply_func)
+    ir = gen_ir(ast)
+
+    code = codegen.cpu.print_cpp(ir)
     print(code)

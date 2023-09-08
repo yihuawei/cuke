@@ -1,19 +1,23 @@
 #include <torch/extension.h>
 
-torch::Tensor add_index_index_a_c14_idx_t(torch::Tensor obj_a, torch::Tensor obj_idx, torch::Tensor obj_t)
+torch::Tensor apply_A__c0_item_of_A(int d1, int d2, torch::Tensor obj_A)
 {
-    auto a = obj_a.accessor<float, 2>();
-auto idx = obj_idx.accessor<int, 1>();
-auto t = obj_t.accessor<float, 1>();
-torch::Tensor obj_arr24 = torch::empty({5}, at::kFloat);
-auto arr24 = obj_arr24.accessor<float, 1>();
-for (int _l6 = 0; _l6 < 5; _l6 += 1) {
-arr24[_l6] = a[0][idx[_l6]] + t[_l6];
+    auto A = obj_A.accessor<float, 2>();
+torch::Tensor obj_arr7 = torch::empty({d1,d2}, at::kFloat);
+auto arr7 = obj_arr7.accessor<float, 2>();
+auto B = obj_B.accessor<float, 1>();
+torch::Tensor obj_arr5 = torch::empty({d2}, at::kFloat);
+auto arr5 = obj_arr5.accessor<float, 1>();
+for (int _l0 = 0; _l0 < d1; _l0 += 1) {
+for (int _l1 = 0; _l1 < d2; _l1 += 1) {
+arr5[_l1] = A[_l0][_l1] + B[_l1];
+arr7[_l0][_l1] = arr5[_l1];
 } 
-return obj_arr24;
+} 
+return obj_arr7;
 
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("run", &add_index_index_a_c14_idx_t);
+    m.def("run", &apply_A__c0_item_of_A);
 }

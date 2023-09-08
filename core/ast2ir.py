@@ -3,6 +3,8 @@ import core
 from core.ast import *
 from core.ir import *
 from opt.loop import *
+import codegen.cpu as cpu
+import core.helpers as helpers
 import copy
 
 
@@ -153,6 +155,7 @@ def gen_ir(node):
                 node.eval = Index(node.operators[0].eval, ind_arr=node.operators[1].eval)
 
         elif node.op_type == 'apply':
+
             node.operators[0]._gen_ir()
             node.operators[2]._gen_ir()
 
@@ -168,15 +171,28 @@ def gen_ir(node):
             item.decl = []
             ret = node.operators[1](item)
             ret._gen_ir()
-            node.operators.append(ret)
+
+            t = helpers.Traversal(cpu.action)
+            ret_ir = t(ret)
+            ret_decl = []
+            ret_compute = []
+
+            for ir in ret_ir:
+                if type(ir)==Decl:
+                    ret_decl.append(ir)
+                else:
+                    ret_compute.append(ir)
+
+            # node.operators.append(ret)
             node.dtype = ret.dtype
             node.ref_size = [node._size()[0]] + ret._size()
             node.fix_size = []
-            outer_loop.body.extend(ret.compute[:])
+            outer_loop.body.extend(ret_compute)
             ret.compute.clear()
             size = core.helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
+            node.decl.extend(ret_decl)
 
             # node.eval <= ret.eval
             res = bind(node.eval, outer_loop.iterate)
