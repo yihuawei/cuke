@@ -1,5 +1,5 @@
-from core.ast2ir import *
-import batch
+from core.ast import *
+from core.ir import *
 
 class Traversal:
 
@@ -7,6 +7,7 @@ class Traversal:
         self.action = action
 
     def _post_traverse(self, node, visited, res):
+        import batch
         if not isinstance(node, ASTNode):
             return
         if node in visited:

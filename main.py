@@ -8,10 +8,10 @@ if __name__ == "__main__":
     # examples.test3()
     # examples.test8()
     # examples.test29()
-    # examples.test30()
-    examples.apply_test3()
-
-
+    # examples.apply_test3()
+    # examples.test27()
+    # examples.test_aggr1()
+    examples.spmv()
 
 
 

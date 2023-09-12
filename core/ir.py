@@ -80,21 +80,6 @@ class Ndarray(DOject):
         return self.name()
 
 
-class Ref(IR):
-    nrefs = 0
-    def __init__(self, dobject):
-        self.dobject = dobject
-        self.ref_id = Ref.nrefs
-        Ref.nrefs += 1
-
-
-    def name(self):
-        return f'ref{self.ref_id}_{self.dobject.name()}'
-
-    def addr(self):
-        return self.name()
-
-
 class Index(IR):
     nindices = 0
     def __init__(self, dobject, index=None, ind_arr=None):
