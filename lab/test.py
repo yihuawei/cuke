@@ -1,3 +1,7 @@
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.ast2ir import *
 import run
 from core import helpers
@@ -12,7 +16,7 @@ def run_demo():
         return A + B - C
 
     ast = func()
-    code = codegen.cpu.print_cpp(ast._gen_ir())
+    code = codegen.cpu.gen_cpp(gen_ir(ast))
 
     # code = codegen.cpu.print_cpp(InterchangeLoop(ast._gen_ir(), [0, 1]))
 
