@@ -1,5 +1,3 @@
-import torch
-import core
 from core.ast import *
 from core.ir import *
 from opt.loop import *
@@ -45,13 +43,13 @@ def gen_ir(node):
 
     elif type(node) == Tensor and len(node._size()) > 0:
         # convert AST sizes to IR sizes
-        size = core.helpers.get_ir_of_size(node._size())
+        size = helpers.get_ir_of_size(node._size())
         node.eval = Ndarray(node.dtype, size, node.name, node.is_arg)
         node.decl = [Decl(node.eval)]
 
     # here we define two special tensors to simply programming for sum/prod operations
     elif (type(node) == Ones or type(node) == Zeros) and len(node._size()) > 0:
-        size = core.helpers.get_ir_of_size(node._size())
+        size = helpers.get_ir_of_size(node._size())
         node.eval = Ndarray(node.dtype, size, node.name, False, 1 if (type(node) == Ones) else 0)
         node.decl = [Decl(node.eval)]
 
@@ -67,7 +65,7 @@ def gen_ir(node):
             assert isinstance(node.operators[0], Tensor) and isinstance(node.operators[1], Tensor)
             if is_same_size(node.operators[0]._size(), node.operators[1]._size()):
                 if len(node._size()) > 0:
-                    size = core.helpers.get_ir_of_size(node._size())
+                    size = helpers.get_ir_of_size(node._size())
                     node.eval = Ndarray(node.dtype, size)
                     node.decl = [Decl(node.eval)]
                     pre_loop = Loop(0, node.eval.size[0], 1, [])
@@ -121,7 +119,7 @@ def gen_ir(node):
                 idx = all_indices.find(i)
                 op2 = bind(op2, all_loops[idx].iterate)
 
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(node.dtype, size, val=0)
             node.decl = [Decl(node.eval)]
             res = node.eval
@@ -192,7 +190,7 @@ def gen_ir(node):
             node.ref_size = [node._size()[0]] + ret._size()
             node.fix_size = []
             outer_loop.body.extend(ret_compute)
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
             node.decl.extend(ret_decl)
@@ -225,12 +223,14 @@ def gen_ir(node):
             node.compute = [outer_loop]
 
         elif node.op_type == 'reduce':
+            print(node.operators[0])
+
             node.operators[0]._gen_ir()
             node.operators[2]._gen_ir()
             node.operators[3]._gen_ir()
             axis = node.operators[3].eval
 
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             if len(size) > 0:
                 node.eval = Ndarray(node.dtype, size)
             else:
@@ -269,9 +269,32 @@ def gen_ir(node):
 
             ret = node.operators[1](item1, item2)
             ret._gen_ir()
+
+            def action(node, res):
+                if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+                    res.extend(node.decl)
+                    node.decl.clear()
+                elif type(node) == TensorOp:
+                    res.extend(node.decl)
+                    res.extend(node.compute)
+                    node.decl.clear()
+                    node.compute.clear()
+
+
+            t = helpers.Traversal(action)
+            ret_ir = t(ret)
+            ret_decl = []
+            ret_compute = []
+
+            for ir in ret_ir:
+                if type(ir) == Decl:
+                    ret_decl.append(ir)
+                else:
+                    ret_compute.append(ir)
+
             node.operators.append(ret)
-            outer_loop.body.extend(ret.compute[:])
-            ret.compute.clear()
+            outer_loop.body.extend(ret_compute)
+            node.decl.extend(ret_decl)
 
             if (len(ret.eval.size) > 0):
                 pre_loop = Loop(0, ret.eval.size[0], 1, [])
@@ -287,6 +310,93 @@ def gen_ir(node):
                 pre_loop.body.append(Assignment(res, rhs))
             else:
                 assign = Assignment(node.eval, ret.eval)
+                outer_loop.body.append(assign)
+
+            node.compute.append(outer_loop)
+
+        elif node.op_type == 'aggr':
+            node.operators[0]._gen_ir() # input tensor
+            node.operators[2]._gen_ir() # init
+            node.operators[3]._gen_ir() # indices
+            node.operators[4]._gen_ir() # axis
+            axis = node.operators[4].eval
+            size = helpers.get_ir_of_size(node._size())
+            node.eval = Ndarray(node.dtype, size)
+            node.decl.append(Decl(node.eval))
+
+            node.compute = []
+            # initialize output
+            pre_loop = Loop(0, node.eval.size[0], 1, [])
+            node.compute.append(pre_loop)
+            res = bind(node.eval, pre_loop.iterate)
+            rhs = node.operators[2].eval
+            for i in range(1, len(node.eval.size)):
+                loop = Loop(0, node.eval.size[i], 1, [])
+                pre_loop.body.append(loop)
+                pre_loop = loop
+                res = bind(res, pre_loop.iterate)
+                rhs = bind(rhs, pre_loop.iterate)
+            pre_loop.body.append(Assignment(res, rhs))
+
+            # compute
+            outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
+
+            item1 = node.operators[6]
+            item2 = node.operators[7]
+            item1.eval = Index(node.eval, ind_arr=node.operators[3].eval)
+            item1.eval = bind(item1.eval, outer_loop.iterate)
+            item2.eval = node.operators[0].eval
+            for i in range(axis):
+                item2.eval = bind(item2.eval, None)
+            item2.eval = bind(item2.eval, outer_loop.iterate, True)
+            item2.decl = []
+            item1.decl = []
+
+            ret = node.operators[1](item1, item2)
+            ret._gen_ir()
+
+            def action(node, res):
+                if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+                    res.extend(node.decl)
+                    node.decl.clear()
+                elif type(node) == TensorOp:
+                    res.extend(node.decl)
+                    res.extend(node.compute)
+                    node.decl.clear()
+                    node.compute.clear()
+
+
+            t = helpers.Traversal(action)
+            ret_ir = t(ret)
+            ret_decl = []
+            ret_compute = []
+
+            for ir in ret_ir:
+                if type(ir) == Decl:
+                    ret_decl.append(ir)
+                else:
+                    ret_compute.append(ir)
+
+            node.operators.append(ret)
+            outer_loop.body.extend(ret_compute)
+            node.decl.extend(ret_decl)
+
+            if (len(ret.eval.size) > 0):
+                pre_loop = Loop(0, ret.eval.size[0], 1, [])
+                outer_loop.body.append(pre_loop)
+                res = bind(Index(node.eval, ind_arr=node.operators[3].eval), outer_loop.iterate)
+                res = bind(res, pre_loop.iterate)
+                rhs = bind(ret.eval, pre_loop.iterate)
+                for i in range(1, len(ret.eval.size)):
+                    loop = Loop(0, ret.eval.size[i], 1, [])
+                    pre_loop.body.append(loop)
+                    pre_loop = loop
+                    res = bind(res, pre_loop.iterate)
+                    rhs = bind(rhs, pre_loop.iterate)
+                pre_loop.body.append(Assignment(res, rhs))
+            else:
+                res = bind(Index(node.eval, ind_arr=node.operators[3].eval), outer_loop.iterate)
+                assign = Assignment(res, ret.eval)
                 outer_loop.body.append(assign)
 
             node.compute.append(outer_loop)

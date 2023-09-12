@@ -1,5 +1,6 @@
-import core
 import copy
+import core
+
 def is_int_var(v):
     return isinstance(v, Tensor) and v.dtype == 'int' and len(v._size()) == 0
 
@@ -157,10 +158,28 @@ class Tensor(ASTNode):
         func = lambda x, y: x + y
         size = self._size()[:axis] + self._size()[axis+1:]
         if (len(size) > 0):
-            init = Zeros(size)
+            init = Zeros(size, dtype=self.dtype)
         else:
-            init = Zero()
+            init = Const(0, dtype=self.dtype)
         return self.reduce(func, init, axis)
+
+    def aggr(self, func, init, indices, axis=0, size=None):
+        if callable(func):
+            from core.ast2ir import  gen_ir
+            op = TensorOp('aggr', self, func, init, indices, axis, size)
+            gen_ir(op)
+            return op
+        else:
+            raise TypeError('aggr must use a callable function')
+
+    def aggr_sum(self, indices, axis=0, size=None):
+        func = lambda x, y: x + y
+        s = self._size()[:axis] + self._size()[axis+1:]
+        if (len(s) > 0):
+            init = Zeros(s, dtype=self.dtype)
+        else:
+            init = Const(0, dtype=self.dtype)
+        return self.aggr(func, init, indices, axis, size)
 
 
 
@@ -230,7 +249,7 @@ def einsum(exp: str, tensor1, tensor2):
     return TensorOp('einsum', tensor1, tensor2, exp)
 
 class TensorOp(Tensor):
-    Types = ['index', 'apply', 'reduce', 'einsum'] + list(op_mapping.keys())
+    Types = ['index', 'apply', 'reduce', 'aggr', 'einsum'] + list(op_mapping.keys())
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -340,6 +359,31 @@ class TensorOp(Tensor):
                 item1 = Tensor(f'item1_of_{self.operators[0].name}', ref_size,
                                self.operators[0].dtype, [], False)
                 item2 = Tensor(f'item2_of_{self.operators[0].name}', ref_size,
+                               self.operators[0].dtype, [], False)
+            else:
+                item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)
+                item2 = Var(f'item2_of_{self.operators[0].name}', self.operators[0].dtype, False)
+            self.operators.append(item1)
+            self.operators.append(item2)
+
+        elif op_type == 'aggr':
+            assert is_1dint_tensor(self.operators[3])
+            assert type(self.operators[4]) == int
+            axis = self.operators[4]
+            self.operators[4] = Const(axis, 'int')
+            if self.operators[5] == None:
+                self.operators[5] = self.operators[0]._size()[axis]
+            else:
+                assert is_int_var(self.operators[5])
+                if type(self.operators[5]) == int:
+                    self.operators[5] = Const(self.operators[5], 'int')
+            ref_size = [self.operators[5]] + self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
+            fix_size = []
+            dtype = self.operators[0].dtype
+            if (len(ref_size) > 1):
+                item1 = Tensor(f'item1_of_{self.operators[0].name}', ref_size[1:],
+                               self.operators[0].dtype, [], False)
+                item2 = Tensor(f'item2_of_{self.operators[0].name}', ref_size[1:],
                                self.operators[0].dtype, [], False)
             else:
                 item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)

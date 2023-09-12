@@ -1,5 +1,5 @@
 from batch.ast import *
-from core.ast2ir import *
+from core.ast2ir import * 
 
 def is_bvec(t):
     return isinstance(t, Batch) and t.item_type == 'vec'

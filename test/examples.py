@@ -2,6 +2,7 @@ from core.ast2ir import *
 import run
 from core import helpers
 import codegen
+import torch
 
 
 def test1():
@@ -541,6 +542,7 @@ def test27():
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
     code = codegen.cpu.print_cpp(ir)
+    print(code)
 
     A = torch.rand(10, 20)
     res = run.cpu.compile_and_run(code, A)
@@ -617,22 +619,8 @@ def f36():
 
     return A.num_elem() + Set(T[40:]).num_elem() + Set(T[1:d]).num_elem()
 
-def spmv():
-    m = Var('m', 'int')
-    r = Var('r', 'int')
-    rowptr = Tensor('ridx', (r+1, ), 'int')
-    colidx = Tensor('cidx', (m, ), 'int')
-    val = Tensor('val', (m, ), 'float')
-
-    c = Var('c', 'int')
-    y = Tensor('y', (c, ), 'float')
-
-    res = y[colidx] * val
 
 
-    # need an aggr function
-
-    return res
 
 
 def conv1d_v1():
@@ -796,4 +784,29 @@ def apply_test4():
     ir = gen_ir(ast)
 
     code = codegen.cpu.print_cpp(ir)
+    print(code)
+
+def test_aggr1():
+    A = Tensor('A', (10, 20))
+    indices = Tensor('idx', (30, ), dtype='int')
+    res = A.aggr_sum(indices)
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+
+def spmv():
+    m = Var('m', 'int')
+    r = Var('r', 'int')
+    rowidx = Tensor('ridx', (m, ), 'int')
+    colidx = Tensor('cidx', (m, ), 'int')
+    val = Tensor('val', (m, ), 'float')
+
+    c = Var('c', 'int')
+    y = Tensor('y', (c, ), 'float')
+
+    res = y[colidx] * val
+    res = res.aggr_sum(rowidx, size=r)
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
