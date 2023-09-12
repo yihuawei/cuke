@@ -128,13 +128,7 @@ def Loop2():
     return ir
 
 
-def InterchangeLoop1(loop, loop_idx=[]):
-    ir_res = []
-    print("Please implement the pass here")
-    pass
-
-
-def InterchangeLoop2(loop, loop_idx=[]):
+def InterchangeLoop(loop, loop_idx=[]):
     ir_res = []
     print("Please implement the pass here")
     pass
@@ -145,9 +139,9 @@ if __name__ == "__main__":
     loop2_ir = Loop2()
     PrintCCode(loop2_ir)
 
-    # optimized_loop1_ir = InterchangeLoop1(loop1_ir, [0, 1]):
-    # optimized_loop1_ir = InterchangeLoop1(loop1_ir, [1, 2]):
-    # optimized_loop2_ir = InterchangeLoop2(loop2_ir, [0, 1]):
+    # optimized_loop1_ir = InterchangeLoop(loop1_ir, [0, 1]):
+    # optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2]):
+    # optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1]):
 
     # optimized_ir = LoopInterchange(ir)
     # print("Loop after interchange:")
