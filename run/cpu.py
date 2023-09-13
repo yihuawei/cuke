@@ -1,4 +1,3 @@
-import torch
 from torch.utils.cpp_extension import load
 
 def compile_and_run(code, *args):

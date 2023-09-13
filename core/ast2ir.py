@@ -1,7 +1,7 @@
 from core.ast import *
 from core.ir import *
 from opt.loop import *
-import core.helpers as helpers
+import helpers
 
 
 
@@ -223,10 +223,8 @@ def gen_ir(node):
             node.compute = [outer_loop]
 
         elif node.op_type == 'reduce':
-            print(node.operators[0])
-
             node.operators[0]._gen_ir()
-            node.operators[2]._gen_ir()
+            node.operators[2]._gen_ir() # init
             node.operators[3]._gen_ir()
             axis = node.operators[3].eval
 
@@ -261,9 +259,12 @@ def gen_ir(node):
             item2 = node.operators[5]
             item1.eval = node.eval
             item2.eval = node.operators[0].eval
-            for i in range(axis):
+            for i in range(axis): # TODO: is this correct?
                 item2.eval = bind(item2.eval, None)
-            item2.eval = bind(item2.eval, outer_loop.iterate, True)
+            if type(item2.eval) == Index and type(item2.eval.ind_arr) == Slice:
+                item2.eval = bind(item2.eval, outer_loop.iterate)
+            else:
+                item2.eval = bind(item2.eval, outer_loop.iterate, True)
             item2.decl = []
             item1.decl = []
 

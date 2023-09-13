@@ -1,12 +1,12 @@
 from core.ast2ir import *
-from core import helpers
+import helpers
 import batch
 
 
 def to_string(ir):
     match ir.__class__.__name__:
         case 'Expr':
-            return to_string(ir.left) + f" {ir.op} " + to_string(ir.right)
+            return f"({to_string(ir.left)}" + f" {ir.op} " + f"{to_string(ir.right)})"
         case 'Assignment':
             if ir.op is None:
                 return f"{to_string(ir.lhs)} = {to_string(ir.rhs)};\n"
@@ -53,9 +53,9 @@ def to_string(ir):
 
                 code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
                 return code
-            elif type(ir.dobject) == Ref:
-                code = f'{ir.dobject.dobject.dtype}* {ir.dobject.name()} = ({ir.dobject.dobject.dtype}*)&{ir.dobject.dobject.addr()}'
-                return code
+            # elif type(ir.dobject) == Ref:
+            #     code = f'{ir.dobject.dobject.dtype}* {ir.dobject.name()} = ({ir.dobject.dobject.dtype}*)&{ir.dobject.dobject.addr()}'
+            #     return code
         case _:
             return str(ir)
 

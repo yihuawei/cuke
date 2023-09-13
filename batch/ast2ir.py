@@ -33,7 +33,7 @@ def gen_ir(node):
             assert is_bvec(node.operators[0]) and is_bvec(node.operators[1])
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             node.base.eval = node.eval = Ndarray(node.dtype, size)
             node.decl = [Decl(node.eval)]
             pre_loop = Loop(0, node.eval.size[0], 1, [])
@@ -53,7 +53,7 @@ def gen_ir(node):
             assert is_bscal(node.operators[0]) and is_bvec(node.operators[1])
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             node.base.eval = node.eval = Ndarray(node.dtype, size)
             node.decl = [Decl(node.eval)]
             pre_loop = Loop(0, node.eval.size[0], 1, [])
@@ -73,7 +73,7 @@ def gen_ir(node):
             assert is_bvec(node.operators[0]) and is_bmat(node.operators[1])
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            size = core.helpers.get_ir_of_size(node._size())
+            size = helpers.get_ir_of_size(node._size())
             node.base.eval = node.eval = Ndarray(node.dtype, size)
             node.decl = [Decl(node.eval)]
             pre_loop = Loop(0, node.eval.size[0], 1, [])
