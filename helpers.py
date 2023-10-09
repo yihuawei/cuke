@@ -3,12 +3,15 @@ from core.ir import *
 
 class Traversal:
 
-    def __init__(self, action):
+    def __init__(self, action, check_eval = True):
         self.action = action
+        self.check_eval = check_eval
 
     def _post_traverse(self, node, visited, res):
         import batch
         if not isinstance(node, ASTNode):
+            return
+        if self.check_eval and node.eval == None:
             return
         if node in visited:
             return
@@ -59,7 +62,7 @@ def get_input_nodes(ast):
             if node.is_arg:
                 res.append([node.name, node])
 
-    t = Traversal(action)
+    t = Traversal(action, check_eval=False)
     return dict(t(ast))
 
 def get_ir_of_size(size):

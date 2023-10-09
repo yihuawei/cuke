@@ -1,10 +1,12 @@
 class IR:
-    pass
+    def __init__(self):
+        self.astnode = None
 
 class DOject(IR):
     nobjects = 0
 
     def __init__(self, dtype: str):
+        super().__init__()
         self.dobject_id = DOject.nobjects
         DOject.nobjects += 1
         self.dtype = dtype
@@ -12,6 +14,7 @@ class DOject(IR):
 
 class Expr(IR):
     def __init__(self, left, right, op: str):
+        super().__init__()
         self.left = left
         self.right = right
         self.op = op
@@ -20,6 +23,7 @@ class Expr(IR):
 
 class Assignment(IR):
     def __init__(self, lhs, rhs, op=None):
+        super().__init__()
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
@@ -30,6 +34,7 @@ class Loop(IR):
     loop_id = 0
 
     def __init__(self, start, end, step, body: list):
+        super().__init__()
         self.lid = Loop.loop_id
         Loop.loop_id += 1
         self.start = start
@@ -57,6 +62,7 @@ class Scalar(DOject):
 
 class Slice(IR):
     def __init__(self, start, stop, step):
+        super().__init__()
         self.start = start
         self.stop = stop
         self.step = step
@@ -83,6 +89,7 @@ class Ndarray(DOject):
 class Index(IR):
     nindices = 0
     def __init__(self, dobject, index=None, ind_arr=None):
+        super().__init__()
         self.dobject = dobject
         self.index = index
         self.ind_arr = ind_arr
@@ -112,4 +119,5 @@ class Index(IR):
 
 class Decl(IR):
     def __init__(self, dobject):
+        super().__init__()
         self.dobject = dobject

@@ -258,6 +258,7 @@ class TensorOp(Tensor):
         dtype = operators[0].dtype
         self.operators = []
         for opr in operators:
+            # an index can be referenced multiple times in the ast, we should create duplicate copies so that they can bind with different loop iterates
             if type(opr) == TensorOp and opr.op_type == 'index' and opr.ref_count >= 1:
                 new_opr = copy.copy(opr)
                 new_opr.ref_count = 1

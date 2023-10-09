@@ -691,9 +691,10 @@ def test29():
 
 
 if __name__ == "__main__":
-    # test1()
-    # test17()
-    # spmv()
-    # test_einsum1()
+    test1()
+    test17()
+    spmv()
+    test_einsum1()
+    apply_test2()
     test_apply5()
-    # test27()
+    test27()

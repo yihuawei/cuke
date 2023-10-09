@@ -17,8 +17,8 @@ def rebind_iterate(ir, old, new):
         rebind_iterate(ir.rhs, old, new)
     elif type(ir) == Ndarray:
         rebind_iterate(ir.size, old, new)
-    elif type(ir) == Ref:
-        rebind_iterate(ir.dobject, old, new)
+    # elif type(ir) == Ref:
+    #     rebind_iterate(ir.dobject, old, new)
     elif type(ir) == Index:
         rebind_iterate(ir.dobject, old, new)
         rebind_iterate(ir.ind_arr, old, new)

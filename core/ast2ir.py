@@ -167,12 +167,11 @@ def gen_ir(node):
             def action(node, res):
                 if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
                     res.extend(node.decl)
-                    node.decl.clear()
+                    # we do not call node.decl.clear() because we want keep the pointers to the IR in the original ASTNode. This pointer is not scanned for code generation though as the ASTNode.eval will be set to None
                 elif type(node) == TensorOp:
                     res.extend(node.decl)
                     res.extend(node.compute)
-                    node.decl.clear()
-                    node.compute.clear()
+                    # the same as above, we do not call node.decl.clear() or node.compute.clear()
 
             t = helpers.Traversal(action)
             ret_ir = t(ret)
@@ -221,6 +220,7 @@ def gen_ir(node):
                 scope = scope[0].body
 
             node.compute = [outer_loop]
+            ret.eval = None
 
         elif node.op_type == 'reduce':
             node.operators[0]._gen_ir()
@@ -274,12 +274,12 @@ def gen_ir(node):
             def action(node, res):
                 if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
                     res.extend(node.decl)
-                    node.decl.clear()
+                    # node.decl.clear()
                 elif type(node) == TensorOp:
                     res.extend(node.decl)
                     res.extend(node.compute)
-                    node.decl.clear()
-                    node.compute.clear()
+                    # node.decl.clear()
+                    # node.compute.clear()
 
 
             t = helpers.Traversal(action)
@@ -314,6 +314,7 @@ def gen_ir(node):
                 outer_loop.body.append(assign)
 
             node.compute.append(outer_loop)
+            ret.eval = None
 
         elif node.op_type == 'aggr':
             node.operators[0]._gen_ir() # input tensor
@@ -359,12 +360,12 @@ def gen_ir(node):
             def action(node, res):
                 if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
                     res.extend(node.decl)
-                    node.decl.clear()
+                    # node.decl.clear()
                 elif type(node) == TensorOp:
                     res.extend(node.decl)
                     res.extend(node.compute)
-                    node.decl.clear()
-                    node.compute.clear()
+                    # node.decl.clear()
+                    # node.compute.clear()
 
 
             t = helpers.Traversal(action)
@@ -401,6 +402,13 @@ def gen_ir(node):
                 outer_loop.body.append(assign)
 
             node.compute.append(outer_loop)
+            ret.eval = None
+
+    # points from IR back to ASTNode
+    for d in node.decl:
+        d.astnode = node
+    for s in node.compute:
+        s.astnode = node
 
     return node
 
