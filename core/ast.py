@@ -89,6 +89,7 @@ class ASTNode:
         self.ref_count = 0
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
+        self.valid = True
 
 
 class Tensor(ASTNode):

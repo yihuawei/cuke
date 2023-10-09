@@ -220,7 +220,7 @@ def gen_ir(node):
                 scope = scope[0].body
 
             node.compute = [outer_loop]
-            ret.eval = None
+            ret.valid = False
 
         elif node.op_type == 'reduce':
             node.operators[0]._gen_ir()
@@ -314,7 +314,7 @@ def gen_ir(node):
                 outer_loop.body.append(assign)
 
             node.compute.append(outer_loop)
-            ret.eval = None
+            ret.valid = False
 
         elif node.op_type == 'aggr':
             node.operators[0]._gen_ir() # input tensor
@@ -402,7 +402,7 @@ def gen_ir(node):
                 outer_loop.body.append(assign)
 
             node.compute.append(outer_loop)
-            ret.eval = None
+            ret.valid = False
 
     # points from IR back to ASTNode
     for d in node.decl:
