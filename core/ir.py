@@ -96,7 +96,7 @@ class Index(IR):
         self.dtype = self.dobject.dtype
         if ind_arr == None:
             self.size = dobject.size[1:]
-        elif type(ind_arr) == Ndarray:
+        elif type(ind_arr) == Ndarray or type(ind_arr) == Index:
             self.size = ind_arr.size + dobject.size[1:]
         elif type(ind_arr) == Slice:
             s = Expr(Expr(ind_arr.stop, ind_arr.start, '-'), ind_arr.step, '/')

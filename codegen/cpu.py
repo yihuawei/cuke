@@ -25,7 +25,7 @@ def to_string(ir):
             if ir.ind_arr != None:
                 if type(ir.ind_arr) == Slice:
                     return f'{to_string(ir.dobject)}[(({to_string(ir.ind_arr.start)})+({to_string(ir.ind_arr.step)})*({to_string(ir.index)}))]'
-                else: # idx is a Tensor
+                else: # idx is a Tensor or Index
                     if ir.index == None:
                         return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}]'
                     else:
@@ -53,9 +53,6 @@ def to_string(ir):
 
                 code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
                 return code
-            # elif type(ir.dobject) == Ref:
-            #     code = f'{ir.dobject.dobject.dtype}* {ir.dobject.name()} = ({ir.dobject.dobject.dtype}*)&{ir.dobject.dobject.addr()}'
-            #     return code
         case _:
             return str(ir)
 
@@ -64,14 +61,15 @@ def to_string(ir):
 
 def gen_cpp(ast, ir):
     def action(node, res):
-        if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
-            res.extend(node.decl)
-        elif type(node) == TensorOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
-        elif type(node) == batch.ast.BatchOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
+        if node.valid == True:
+            if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+                res.extend(node.decl)
+            elif type(node) == TensorOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+            elif type(node) == batch.ast.BatchOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
 
     t = helpers.Traversal(action)
     ir.extend(t(ast))
