@@ -92,11 +92,19 @@ class Indexing(DOject):
         assert idx != None and type(idx) in (Scalar, Literal, Indexing)
         self.dobject = dobject
         self.idx = idx
-        # TODO: infer index sizes
+
         if type(self.dobject) in (Ndarray, Slice):
-            size = idx.size + dobject.size[1:]
-            self.ref_point = len(idx.size)
+            if type(idx) == Literal and idx.val == -1:
+                # idx is unspecified, which means the Indexing is a range of indice stored in dobject, so the size of Indexing should the same as the dobject
+                size = dobject.size[:]
+                self.ref_point = 1
+            else:
+                # idx is a specific Scalar, Literal, or Indexing, in any case, the size of the Indexing operation should be as follows
+                # ref_point should be the next dimension if the node is further Indexed
+                size = idx.size + dobject.size[1:]
+                self.ref_point = len(idx.size)
         else:
+            # dobject is an Indexing
             size = dobject.size[:dobject.ref_point] + idx.size + dobject.size[dobject.ref_point+1:]
             self.ref_point = dobject.ref_point + len(idx.size)
 
