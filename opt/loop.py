@@ -19,14 +19,13 @@ def rebind_iterate(ir, old, new):
         rebind_iterate(ir.size, old, new)
     # elif type(ir) == Ref:
     #     rebind_iterate(ir.dobject, old, new)
-    elif type(ir) == Index:
+    elif type(ir) == Indexing:
         rebind_iterate(ir.dobject, old, new)
-        rebind_iterate(ir.ind_arr, old, new)
-        if type(ir.index) == Scalar:
-            if ir.index == old:
-                ir.index = new
+        if type(ir.idx) in (Scalar, Literal):
+            if ir.idx == old:
+                ir.idx = new
         else:
-            rebind_iterate(ir.index, old, new)
+            rebind_iterate(ir.idx, old, new)
     elif type(ir) == Slice:
         rebind_iterate(ir.start, old, new)
         rebind_iterate(ir.stop, old, new)

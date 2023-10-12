@@ -1,15 +1,17 @@
 class IR:
     def __init__(self):
+        # astnode tracks the location of this IR in the AST
         self.astnode = None
 
 class DOject(IR):
     nobjects = 0
 
-    def __init__(self, dtype: str):
+    def __init__(self, dtype: str, size: (list, tuple)):
         super().__init__()
         self.dobject_id = DOject.nobjects
         DOject.nobjects += 1
         self.dtype = dtype
+        self.size = size
 
 
 class Expr(IR):
@@ -46,18 +48,18 @@ class Loop(IR):
 
 class Scalar(DOject):
     def __init__(self, dtype: str, name: str = None, is_arg = False, val = None):
-        super().__init__(dtype)
+        super().__init__(dtype, [])
         self.__name__ = name if name else f's{self.dobject_id}'
-        self.size = []
         self.val = val
         self.is_arg = is_arg
-
-
     def name(self):
         return self.__name__
 
-    def addr(self):
-        return self.name()
+
+class Literal(DOject):
+    def __init__(self, val: (int, float), dtype: str):
+        super().__init__(dtype, [])
+        self.val = val
 
 
 class Slice(IR):
@@ -66,12 +68,13 @@ class Slice(IR):
         self.start = start
         self.stop = stop
         self.step = step
+        self.dtype = 'int'
+        self.size = [Expr(Expr(self.stop, self.start, '-'), self.step, '/')]
 
 
 class Ndarray(DOject):
     def __init__(self, dtype: str, size: tuple, name: str = None, is_arg = False, val = None):
-        super().__init__(dtype)
-        self.size = size
+        super().__init__(dtype, size)
         self.__name__ = name if name else f'arr{self.dobject_id}'
         self.val = val # val is None, 0, or 1
         self.is_arg = is_arg
@@ -82,42 +85,29 @@ class Ndarray(DOject):
     def name(self):
         return self.__name__
 
-    def addr(self):
-        return self.name()
 
-
-class Index(IR):
-    nindices = 0
-    def __init__(self, dobject, index=None, ind_arr=None):
-        super().__init__()
+class Indexing(DOject):
+    def __init__(self, dobject, idx):
+        assert dobject != None and type(dobject) in (Slice, Ndarray, Indexing)
+        assert idx != None and type(idx) in (Scalar, Literal, Indexing)
         self.dobject = dobject
-        self.index = index
-        self.ind_arr = ind_arr
-        self.dtype = self.dobject.dtype
-        if ind_arr == None:
-            self.size = dobject.size[1:]
-        elif type(ind_arr) == Ndarray or type(ind_arr) == Index:
-            self.size = ind_arr.size + dobject.size[1:]
-        elif type(ind_arr) == Slice:
-            s = Expr(Expr(ind_arr.stop, ind_arr.start, '-'), ind_arr.step, '/')
-            self.size = [s] + dobject.size[1:]
-        self.index_id = Index.nindices
-        Index.nindices += 1
-
-
-    def name(self):
-        return f'ref{self.index_id}_{self.dobject.name()}'
-
-    def addr(self):
-        if self.ind_arr:
-            return f'{self.dobject}[{self.ind_arr[0]}]'
+        self.idx = idx
+        # TODO: infer index sizes
+        if type(self.dobject) in (Ndarray, Slice):
+            size = idx.size + dobject.size[1:]
+            self.ref_point = len(idx.size)
         else:
-            return f'{self.dobject}[0]'
+            size = dobject.size[:dobject.ref_point] + idx.size + dobject.size[dobject.ref_point+1:]
+            self.ref_point = dobject.ref_point + len(idx.size)
+
+        super().__init__(dobject.dtype, size)
+
+
 
 
 
 
 class Decl(IR):
-    def __init__(self, dobject):
+    def __init__(self, dobject: (Scalar, Ndarray)):
         super().__init__()
         self.dobject = dobject

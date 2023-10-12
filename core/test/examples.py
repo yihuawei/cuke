@@ -13,6 +13,7 @@ def test1():
 
     ast = func()
     code = codegen.cpu.print_cpp(ast._gen_ir())
+    print(code)
 
     A = torch.rand(10, 10)
     B = torch.rand(10, 10)
@@ -78,11 +79,6 @@ def test4():
     d = run.cpu.compile_and_run(code, A, i, t)
     print(d, A[i] + t)
 
-def f5():
-    A = Tensor('a', (10, ))
-    t = Var('t', A.dtype)
-
-    return A[0] + t
 
 def test6():
     A = Tensor('a', (10, ))
@@ -348,20 +344,49 @@ def test17():
     d = run.cpu.compile_and_run(code, A, B)
 
     print(A[1:10][:, 2:4] + B[1:10][:, 2:4])
+    print(d)
     print(torch.equal(A[1:10][:, 2:4] + B[1:10][:, 2:4], d))
+
+
+def test18():
+    A = Tensor('A', (100, 20))
+    B = Tensor('B', (100, ), dtype='int')
+
+    ast = A[1:10][B[2:4]] + A[1:10][B[1:3]]
+    print(helpers.get_input_nodes(ast))
+    ir = gen_ir(ast)
+
+    code = codegen.cpu.print_cpp(ir)
+    A = torch.rand(100, 20)
+    B = torch.randint(0, 20, (100, )).to(torch.int32)
+    d = run.cpu.compile_and_run(code, A, B)
+
+    print(A[1:10][:, B[2:4]] + A[1:10][:, B[1:3]])
+    print(d)
+    print(torch.equal(A[1:10][:, B[2:4]] + A[1:10][:, B[1:3]], d))
+
+def test19():
+    nnodes = 100
+    nedges = 300
+    rowptr = Tensor('rowptr', (nnodes + 1, ), dtype='int')
+    colidx = Tensor('colidx', (nedges, ), dtype='int')
+    edge_list = Tensor('edge_list', (10, 2), dtype='int')
+    ast = colidx[rowptr[edge_list[0][0]]:rowptr[edge_list[0][1]]] + colidx[rowptr[edge_list[0][0]]:rowptr[edge_list[0][1]]]
+
+    print(helpers.get_input_nodes(ast))
+    code = codegen.cpu.print_cpp(gen_ir(ast))
+    print(code)
+
 
 
 
 def apply_test1():
-    num_node = 10
     num_edges = 20
-    max_degree = 20
-    rowptr = Tensor('rowptr', (num_node+1,), dtype='int')
+    length = 50
     rowidx = Tensor('rowidx', (num_edges,), dtype='int')
     colidx = Tensor('colidx', (num_edges,), dtype='int')
-    edge_idx = Tensor('edge_idx', (num_edges,), dtype='int')
+    edge_idx = Tensor('edge_idx', (length,), dtype='int')
 
-    v0 = rowidx[0]
 
     def apply_func(edge_id):
         v0 = rowidx[edge_id]
@@ -370,7 +395,28 @@ def apply_test1():
 
     res = edge_idx.apply(apply_func)
     code = codegen.cpu.print_cpp(gen_ir(res))
-    print(code)
+    print(helpers.get_input_nodes(res))
+
+    edge_idx = torch.randint(0, num_edges, (length,)).to(torch.int32)
+    rowidx = torch.randint(0, 1000, (num_edges,)).to(torch.int32)
+    colidx = torch.randint(0, 1000, (num_edges,)).to(torch.int32)
+
+    d = run.cpu.compile_and_run(code, edge_idx, rowidx, colidx)
+
+    res = torch.zeros_like(edge_idx)
+    for i in range(len(edge_idx)):
+        e = edge_idx[i]
+        v0 = rowidx[e]
+        v1 = colidx[e] + 1
+        res[i] = v0 + v1
+
+    print(d)
+    print(res)
+    print(torch.equal(d, res))
+
+
+
+
 
 
 def apply_test2():
@@ -396,7 +442,6 @@ def apply_test3():
 
     def apply_func(item):
         def apply_func2(item2):
-            print(type(item2))
             return C[item2] + B[item2]
 
         return item.apply(apply_func2)
@@ -419,7 +464,6 @@ def apply_test4():
 
     def apply_func(item):
         def apply_func2(item2):
-            print(is_int_var(item2))
             return B[item2]
 
         return item.apply(apply_func2)
@@ -692,9 +736,29 @@ def test29():
 
 if __name__ == "__main__":
     # test1()
+    # test2()
+    # test3()
+    # test4()
+    # test6()
+    # test7()
+    # test8()
+    # test9()
+    # test10()
+    # test11()
+    # test12()
+    # test13()
+    # test14()
+    # test15()
+    # test16()
     # test17()
+    # test18()
+    # test19()
+    # apply_test1()
+    # apply_test2()
+    # apply_test3()
+    apply_test4()
     # test_aggr1()
-    spmv()
+    # spmv()
     # test_einsum1()
     # apply_test2()
     # test_apply5()

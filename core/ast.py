@@ -239,6 +239,8 @@ class Const(Var):
     def __init__(self, val, dtype):
         super().__init__(f'c{Const.nconsts}', dtype)
         Const.nconsts += 1
+        # slice is considered constant because once the slice is created its start, stop, step cannot be reassigned
+        # however, start, stop, step themselves can be variables
         if dtype == 'slice':
             assert type(val.start) == int or is_int_var(val.start)
             assert type(val.stop) == int or is_int_var(val.stop)
@@ -327,7 +329,7 @@ class TensorOp(Tensor):
             elif is_int_var(self.operators[1]):
                 self.operators[1] = self.operators[1]
             elif is_1dint_tensor(self.operators[1]):
-                fix_size.append(self.operators[1].ref_size[0])
+                fix_size.append(self.operators[1]._size()[0])
             else:
                 raise TypeError('index must be int, Var of int, or 1d int Tensor')
 

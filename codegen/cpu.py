@@ -21,17 +21,13 @@ def to_string(ir):
             return code
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
-        case 'Index':
-            if ir.ind_arr != None:
-                if type(ir.ind_arr) == Slice:
-                    return f'{to_string(ir.dobject)}[(({to_string(ir.ind_arr.start)})+({to_string(ir.ind_arr.step)})*({to_string(ir.index)}))]'
-                else: # idx is a Tensor or Index
-                    if ir.index == None:
-                        return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}]'
-                    else:
-                        return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr)}[{to_string(ir.index)}]]'
+        case 'Literal':
+            return str(ir.val)
+        case 'Indexing':
+            if type(ir.dobject) == Slice:
+                return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
-                return f'{to_string(ir.dobject)}[{to_string(ir.index)}]'
+                return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
