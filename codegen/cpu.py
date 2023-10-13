@@ -1,6 +1,9 @@
 from core.ast2ir import *
+from cset.ast2ir import *
 import helpers
 import batch
+import cset
+
 
 
 def to_string(ir):
@@ -28,6 +31,16 @@ def to_string(ir):
                 return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
+        case 'Condition':
+            code = f"if({to_string(ir.condition)}){{\n"
+            for e in ir.body:
+                if e:
+                    code += to_string(e)
+            code += "} \n"
+            return code
+        case 'Search':
+            code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
+            return code
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
@@ -66,6 +79,11 @@ def gen_cpp(ast, ir):
             elif type(node) == batch.ast.BatchOp:
                 res.extend(node.decl)
                 res.extend(node.compute)
+            elif type(node) == cset.ast.Set:
+                res.extend(node.decl)
+            elif type(node) == cset.ast.SetOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
 
     t = helpers.Traversal(action)
     ir.extend(t(ast))
@@ -85,6 +103,7 @@ def print_cpp(ast):
 
 
     if type(ast.eval) == Scalar:
+        # code +=f'printf(\"set_sum_of_sum_apply_edge_list:%d\\n\", set_sum_of_sum_apply_edge_list);\n'
         rtype = ast.dtype
         code += f'return {ast.eval.name()};\n'
     elif type(ast.eval) == Ndarray:

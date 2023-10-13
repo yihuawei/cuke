@@ -149,5 +149,49 @@ def conv1d_v2(width):
     code = codegen.cpu.print_cpp(ir)
     print(code)
 
+from cset.ast2ir import *
+import numpy as np
+def triangle_counting():
+    #Read file
+    np_rowptr = np.fromfile("./MiCo/snap.txt.vertex.bin", dtype=np.int64)
+    np_colidx = np.fromfile("./MiCo/snap.txt.edge.bin", dtype=np.int32)
+    print(np_rowptr.shape)
+    print(np_colidx.shape)
+    # return 
+
+    torch_rowptr = torch.from_numpy(np_rowptr, ).to(torch.int32)
+    torch_colidx =torch.from_numpy(np_colidx)
+    torch_edge_list = torch.zeros([torch_colidx.shape[0], 2], dtype=torch.int32)
+    print(torch_rowptr)
+    print(torch_edge_list.shape)
+
+    edge_idx = 0
+    for i in range(0, torch_rowptr.shape[0]-1):
+        # print(torch_rowptr[i].item())
+        for j in range(torch_rowptr[i].item() , torch_rowptr[i+1].item()):
+            torch_edge_list[edge_idx][0] = i
+            torch_edge_list[edge_idx][1] = torch_colidx[j]
+            print(str(torch_edge_list[edge_idx][0].item()) + ':' + str(torch_edge_list[edge_idx][1].item()))
+            edge_idx = edge_idx+1
+
+    #Cuke
+    num_node = torch_rowptr.shape[0]-1
+    num_edges = torch_colidx.shape[0]
+    rowptr = Tensor('rowptr', (num_node+1,), dtype='int')
+    colidx = Tensor('colidx', (num_edges,), dtype='int')
+
+    edge_list =  Set(Tensor('edge_list', (num_edges, 2), dtype='int'))
+
+    def inner_triangle_counting(edge):
+        v0_nb =   Set(colidx[rowptr[edge[0]]:rowptr[edge[0]+1]])
+        v1_nb =   Set(colidx[rowptr[edge[1]]:rowptr[edge[1]+1]])
+        k = v0_nb.filter(BinarySearch(v1_nb))
+        return k.num_elem()
+    res = edge_list.apply(inner_triangle_counting).sum()
+    code = codegen.cpu.print_cpp(res._gen_ir())
+
+    d = run.cpu.compile_and_run(code, torch_edge_list, torch_rowptr, torch_colidx)
+    print(d)
+    print(code)
 
 
