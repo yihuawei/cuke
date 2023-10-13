@@ -8,7 +8,7 @@ from codegen.cpu import *
 def PrintCCode(ir):
 	code = ''
 	for d in ir:
-		if d:
+		# if d:
 			code += to_string(d)
 	print(code)
 
@@ -44,10 +44,15 @@ def Loop0():
     return ir
 
 
-def LoopTiling(loop_ir, tile_size = []):
-	#implement here
-	pass
+
+def LoopTiling(ir, tile_size = []):
+    #Implement your code here
+    pass
+	
 
 if __name__ == "__main__":
-    loop0_ir = Loop0()
+    loop0_ir = Loop0()  # Loop0 is just an example
     PrintCCode(loop0_ir)
+
+    #loop0_ir_after_tiling = LoopTiling(loop0_ir, tile_size = [3,4, 5])
+    # PrintCCode(loop0_ir_after_tiling)

@@ -1,6 +1,29 @@
 class IR:
     pass
 
+class Min(IR):
+    nmin = 0
+    def __init__(self, first, second):
+        self.min_id = Min.nmin
+        Min.nmin += 1
+        self.first = first
+        self.second = second
+
+class Max(IR):
+    nmax = 0
+    def __init__(self, first, second):
+        self.max_id = Max.nmax
+        Max.nmax += 1
+        self.first = first
+        self.second = second
+
+class Round(IR):
+    nround = 0
+    def __init__(self, expr):
+        self.round_id = Round.nround
+        Round.nround += 1
+        self.expr = expr
+
 class DOject(IR):
     nobjects = 0
 
@@ -32,11 +55,11 @@ class Loop(IR):
     def __init__(self, start, end, step, body: list):
         self.lid = Loop.loop_id
         Loop.loop_id += 1
-        self.start = start
-        self.end = end
+        self.start = start #lower bounds
+        self.end = end     #upper bounds
         self.step = step
-        self.body = body
-        self.iterate = Scalar('int', f'_l{self.lid}')
+        self.body = body   #loop body
+        self.iterate = Scalar('int', f'_l{self.lid}') #_l0, _l1, _l2
 
 
 class Scalar(DOject):

@@ -30,6 +30,12 @@ def to_string(ir):
                     return f'{to_string(ir.dobject)}[{to_string(ir.ind_arr[to_string(ir.index)])}]'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.index)}]'
+        case 'Min':
+            return f"Min({to_string(ir.first)}, {to_string(ir.second)})"
+        case 'Max':
+            return f"Max({to_string(ir.first)}, {to_string(ir.second)})"
+        case 'Round':
+            return f"Round({to_string(ir.expr)})"
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
