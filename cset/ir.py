@@ -19,10 +19,21 @@ from core.ir import *
 #         self.fid = Filter.filter_id
 #         Filter.filter_id += 1
 
+# class Filter(IR):
+#     pass
+
+
+for(i=start; i<end; i+=step){
+    body
+    if(condition){
+        body
+    }
+    body
+}
 class Condition(IR):
     condition_id = 0
     def __init__(self, condition, body):
-        self.condition = condition
+        self.condition = condition  #if(condition){ body;}
         self.body = body
         self.cid = Condition.condition_id
         Condition.condition_id+=1

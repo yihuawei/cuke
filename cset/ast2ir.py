@@ -125,6 +125,7 @@ def gen_ir(node):
 
             ret = cond_obj(item)
             
+            #把filter_loop的类型改成FilterLoop
             filter_loop = Loop(0, input_set.nelem.eval, 1, [])
             item.eval = IndexOffset(input_set.eval, filter_loop.iterate)
 
@@ -174,7 +175,11 @@ def gen_ir(node):
            
             node.decl.extend([Decl(node.nelem.eval)])
             node.decl.extend(ret_decl)
+
+            filter_loop.body.append([assignment])
             node.compute = [filter_loop]
+
+            # node.compute.append(for_loop_assignment)
 
         elif node.op_type == 'search':
             input_set = node.operators[0]

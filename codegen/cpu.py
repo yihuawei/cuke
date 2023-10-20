@@ -22,6 +22,18 @@ def to_string(ir):
                     code += to_string(e)
             code += "} \n"
             return code
+        #case 'FilterLoop':
+            # code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
+            # for e in ir.condition_body:
+            #     if e:
+            #         code += to_string(e)
+            # code += f"if({to_string(ir.condition)}){{\n"
+            #     #
+            # for e in ir.body:
+            #     if e:
+            #         code += to_string(e)
+            # code += "} \n"
+            # return code
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
         case 'Literal':
@@ -103,7 +115,6 @@ def print_cpp(ast):
 
 
     if type(ast.eval) == Scalar:
-        # code +=f'printf(\"set_sum_of_sum_apply_edge_list:%d\\n\", set_sum_of_sum_apply_edge_list);\n'
         rtype = ast.dtype
         code += f'return {ast.eval.name()};\n'
     elif type(ast.eval) == Ndarray:
