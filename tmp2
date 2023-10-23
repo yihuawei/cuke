@@ -1,0 +1,90 @@
+torch::Tensor set_apply_edge_list(torch::Tensor obj_edge_list, torch::Tensor obj_rowptr, torch::Tensor obj_colidx)
+{
+    auto edge_list = obj_edge_list.accessor<int, 2>();
+int s11;
+int s16;
+int s18;
+torch::Tensor obj_apply_index_colidx_c10 = torch::empty({2000}, at::kInt);
+auto apply_index_colidx_c10 = obj_apply_index_colidx_c10.accessor<int, 1>();
+auto rowptr = obj_rowptr.accessor<int, 1>();
+int s31;
+int s36;
+int s38;
+auto colidx = obj_colidx.accessor<int, 1>();
+int set_res_of_search_index_colidx_c15;
+torch::Tensor obj_apply_index_colidx_c10 = torch::empty({2000}, at::kInt);
+auto apply_index_colidx_c10 = obj_apply_index_colidx_c10.accessor<int, 1>();
+int nelem_set_apply_index_colidx_c10 = 0;
+int s49;
+int s52;
+int s54;
+torch::Tensor obj_apply_apply_index_colidx_c24 = torch::empty({2000}, at::kInt);
+auto apply_apply_index_colidx_c24 = obj_apply_apply_index_colidx_c24.accessor<int, 1>();
+torch::Tensor obj_apply_index_colidx_c24 = torch::empty({2000}, at::kInt);
+auto apply_index_colidx_c24 = obj_apply_index_colidx_c24.accessor<int, 1>();
+int s65;
+int s69;
+int s71;
+int set_res_of_search_index_colidx_c27;
+torch::Tensor obj_apply_index_colidx_c24 = torch::empty({2000}, at::kInt);
+auto apply_index_colidx_c24 = obj_apply_index_colidx_c24.accessor<int, 1>();
+int nelem_set_apply_index_colidx_c24 = 0;
+int s86;
+int s90;
+int s92;
+int set_res_of_search_index_colidx_c32;
+torch::Tensor obj_apply_apply_index_colidx_c24 = torch::empty({2000}, at::kInt);
+auto apply_apply_index_colidx_c24 = obj_apply_apply_index_colidx_c24.accessor<int, 1>();
+int nelem_set_apply_apply_index_colidx_c24 = 0;
+int zero_0 = 0;
+int s104;
+for (int _l0 = 0; _l0 < 20; _l0 += 1) {
+s11 = (edge_list[_l0][0] + 1);
+s16 = (rowptr[s11] - rowptr[edge_list[_l0][0]]);
+s18 = (s16 / 1);
+for (int _fl0 = 0; _fl0 < s18; _fl0 += 1) {
+s31 = (edge_list[_l0][1] + 1);
+s36 = (rowptr[s31] - rowptr[edge_list[_l0][1]]);
+s38 = (s36 / 1);
+set_res_of_search_index_colidx_c15 = BinarySearch(colidx[((rowptr[edge_list[_l0][1]])+(1)*(0))], 0, s38, colidx[((rowptr[edge_list[_l0][0]])+(1)*(_fl0))]);
+if(set_res_of_search_index_colidx_c15){
+apply_index_colidx_c10[nelem_set_apply_index_colidx_c10] = colidx[((rowptr[edge_list[_l0][0]])+(1)*(_fl0))];
+nelem_set_apply_index_colidx_c10 += 1;
+} 
+} 
+for (int _l1 = 0; _l1 < nelem_set_apply_index_colidx_c10; _l1 += 1) {
+s49 = (apply_index_colidx_c10[_l1] + 1);
+s52 = (rowptr[s49] - rowptr[apply_index_colidx_c10[_l1]]);
+s54 = (s52 / 1);
+for (int _fl1 = 0; _fl1 < s54; _fl1 += 1) {
+s65 = (edge_list[_l0][0] + 1);
+s69 = (rowptr[s65] - rowptr[edge_list[_l0][0]]);
+s71 = (s69 / 1);
+set_res_of_search_index_colidx_c27 = BinarySearch(colidx[((rowptr[edge_list[_l0][0]])+(1)*(0))], 0, s71, colidx[((rowptr[apply_index_colidx_c10[_l1]])+(1)*(_fl1))]);
+if(set_res_of_search_index_colidx_c27){
+apply_index_colidx_c24[nelem_set_apply_index_colidx_c24] = colidx[((rowptr[apply_index_colidx_c10[_l1]])+(1)*(_fl1))];
+nelem_set_apply_index_colidx_c24 += 1;
+} 
+} 
+for (int _fl2 = 0; _fl2 < nelem_set_apply_index_colidx_c24; _fl2 += 1) {
+s86 = (edge_list[_l0][1] + 1);
+s90 = (rowptr[s86] - rowptr[edge_list[_l0][1]]);
+s92 = (s90 / 1);
+set_res_of_search_index_colidx_c32 = BinarySearch(colidx[((rowptr[edge_list[_l0][1]])+(1)*(0))], 0, s92, apply_index_colidx_c24[_fl2]);
+if(set_res_of_search_index_colidx_c32){
+apply_apply_index_colidx_c24[nelem_set_apply_apply_index_colidx_c24] = apply_index_colidx_c24[_fl2];
+nelem_set_apply_apply_index_colidx_c24 += 1;
+} 
+} 
+for (int _l2 = 0; _l2 < nelem_set_apply_apply_index_colidx_c24; _l2 += 1) {
+s104 = (zero_0 + 1);
+} 
+} 
+} 
+return obj_apply_edge_list;
+
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("run", &set_apply_edge_list);
+}

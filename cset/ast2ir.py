@@ -140,7 +140,7 @@ def gen_ir(node):
 
             elif not input_func and input_cond:
 
-                outer_loop = FilterLoop(0, input_set.nelem[input_axis.eval.val].eval, 1, [])
+                outer_loop = FilterLoop(0, input_set.nelem[input_axis.eval.val].eval, 1, [], None, [])
 
                 item.eval = input_set.eval
                 # for i in range(input_axis.eval.val):
@@ -152,17 +152,18 @@ def gen_ir(node):
 
                 cond_ret, cond_ret_decl, cond_ret_compute = _extend_ast(input_cond, item)
 
+                node.operators.append(cond_ret)
+
                 outer_loop.body.extend(cond_ret_compute)
                 outer_loop.cond = cond_ret.eval
 
                 res_size = Scalar('int', 'nelem_'+node.name, val=0)
-                assignment = Assignment(IndexOffset(node.eval, res_size), input_set.eval)
+                assignment = Assignment(IndexOffset(node.eval, res_size), item.eval)
                 res_add_one = Assignment(res_size, 1, '+')
-                print(len(outer_loop.cond_body))
                 outer_loop.cond_body.extend([assignment, res_add_one])
 
                 node.decl.extend(cond_ret_decl)
-                node.decl.extend([Decl(node.eval)])  
+                node.decl.extend([Decl(res_size)])  
                 node.compute = [outer_loop]
 
                 node.storage.ref_size = [node.storage._size()[0]] + cond_ret._size()

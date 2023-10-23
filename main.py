@@ -6,4 +6,4 @@ from test import examples
 
 
 if __name__ == "__main__":
-    examples.subgraph_matching()
+    examples.subgraph_matching2()
