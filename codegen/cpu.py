@@ -22,18 +22,23 @@ def to_string(ir):
                     code += to_string(e)
             code += "} \n"
             return code
-        #case 'FilterLoop':
-            # code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
-            # for e in ir.condition_body:
-            #     if e:
-            #         code += to_string(e)
-            # code += f"if({to_string(ir.condition)}){{\n"
-            #     #
-            # for e in ir.body:
-            #     if e:
-            #         code += to_string(e)
-            # code += "} \n"
-            # return code
+        
+        case 'FilterLoop':
+            code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
+            for e in ir.body:
+                if e:
+                    code += to_string(e)
+            
+            if ir.cond:
+                code += f"if({to_string(ir.cond)}){{\n"
+                for e in ir.cond_body:
+                    if e:
+                        code += to_string(e)
+                code += "} \n"
+            
+            code += "} \n"
+            return code
+        
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
         case 'Literal':
@@ -78,8 +83,6 @@ def to_string(ir):
             return str(ir)
 
 
-
-
 def gen_cpp(ast, ir):
     def action(node, res):
         if node.valid == True:
@@ -111,6 +114,9 @@ def print_cpp(ast):
     code = ''
     for d in ir:
         if d:
+            # if to_string(d)==None:
+            #     code += "None\n"
+            # else:
             code += to_string(d)
 
 

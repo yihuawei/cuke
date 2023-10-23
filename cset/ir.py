@@ -23,13 +23,15 @@ from core.ir import *
 #     pass
 
 
-for(i=start; i<end; i+=step){
-    body
-    if(condition){
-        body
-    }
-    body
-}
+# for(i=start; i<end; i+=step){
+#     body
+#     if(condition){
+#         body
+#     }
+#     body
+# }
+
+
 class Condition(IR):
     condition_id = 0
     def __init__(self, condition, body):
@@ -37,6 +39,28 @@ class Condition(IR):
         self.body = body
         self.cid = Condition.condition_id
         Condition.condition_id+=1
+
+class FilterLoop(IR):
+    filter_id = 0
+    def __init__(self, start, end, step,  
+                body = [], 
+                cond = None, 
+                cond_body = []):
+        self.fid = FilterLoop.filter_id
+        FilterLoop.filter_id += 1
+        
+        self.start = start
+        self.end = end
+        self.step = step
+        self.iterate = Scalar('int', f'_fl{self.fid}')
+
+        self.body = body
+        self.cond = cond
+        self.cond_body = cond_body
+
+
+
+
 
 class Search(IR):
     search_id = 0

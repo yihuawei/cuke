@@ -242,6 +242,9 @@ class Const(Var):
         # slice is considered constant because once the slice is created its start, stop, step cannot be reassigned
         # however, start, stop, step themselves can be variables
         if dtype == 'slice':
+            # print(val.start)
+            # print(val.start._size())
+            # print(val.start.dtype)
             assert type(val.start) == int or is_int_var(val.start)
             assert type(val.stop) == int or is_int_var(val.stop)
             assert type(val.step) == int or is_int_var(val.step)

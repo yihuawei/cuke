@@ -45,11 +45,13 @@ class Traversal:
             self.action(node, res)
         elif type(node) == Set:
             self._post_traverse(node.storage, visited, res)
-            self._post_traverse(node.nelem, visited, res)
+            for n in node.nelem:
+                self._post_traverse(n, visited, res)
             self.action(node, res)
         elif type(node) == SetOp:
             self._post_traverse(node.storage, visited, res)
-            self._post_traverse(node.nelem, visited, res)
+            for n in node.nelem:
+                self._post_traverse(n, visited, res)
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)
