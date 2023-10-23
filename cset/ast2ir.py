@@ -164,7 +164,7 @@ def gen_ir(node):
 
                 node.decl.extend(cond_ret_decl)
                 node.decl.extend([Decl(res_size)])  
-                node.compute = [outer_loop]
+                node.compute = [Assignment(res_size, 0), outer_loop]
 
                 node.storage.ref_size = [node.storage._size()[0]] + cond_ret._size()
                 node.storage.fix_size = []
@@ -225,6 +225,10 @@ def gen_ir(node):
             node.decl = [Decl(node.eval)]
             node.compute = [Assignment(node.eval ,Expr(Expr(val.eval, item.eval, '-'), 0, '>'))]
         
+        elif node.op_type == 'addone':
+            node.operators[0]._gen_ir()
+            node.eval = node.operators[0].storage.eval
+            node.compute = [Assignment(node.eval, 1, '+')]
         # elif node.op_type == 'filter':
         #     input_set = node.operators[0]
         #     input_set._gen_ir()

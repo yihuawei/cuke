@@ -111,6 +111,10 @@ class Set(ASTNode):
         op = SetOp('sum', self)
         return op
     
+    def addone(self):
+        op = SetOp('addone', self)
+        return op 
+    
 
 class SetOp(Set):
 
@@ -166,5 +170,11 @@ class SetOp(Set):
             input_storage_name = input_storage.name
             res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
             super().__init__(Var(f'sum_of_{res_storage_name}', 'int', False))
+        
+        elif op_type == 'addone':
+            input_storage = self.operators[0].storage
+            input_storage_name = input_storage.name
+            res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
+            super().__init__(Var(f'addone_of_{res_storage_name}', 'int', False))
 
         

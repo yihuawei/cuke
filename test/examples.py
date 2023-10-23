@@ -242,6 +242,7 @@ def subgraph_matching():
                 return candidate_set.applyfunc(inner_subgraph_matching(self.level+1, [item[0], item[1]]))
             else:
                 candidate_set = Set(colidx[rowptr[item]:rowptr[item+1]])
+                candidate_set = candidate_set.filter(SmallerThan(self.path[-1]))
                 for v in self.path:
                     v_nb =  Set(colidx[rowptr[v]:rowptr[v+1]])
                     candidate_set = candidate_set.intersect(v_nb)
@@ -298,15 +299,17 @@ def subgraph_matching2():
         def __call__(self, item):
 
             if self.level == pattern_size-1:
-                return  count+1
+                return Set(count).addone()
 
             if self.level==1:
                 v0_nb =  Set(colidx[rowptr[item[0]]:rowptr[item[0]+1]])
                 v1_nb =  Set(colidx[rowptr[item[1]]:rowptr[item[1]+1]])
-                candidate_set = v0_nb.intersect(v1_nb)
+                candidate_set = v0_nb.filter(SmallerThan(item[0])).intersect(v1_nb)
+                # candidate_set = v0_nb.intersect(v1_nb)
                 return candidate_set.applyfunc(inner_subgraph_matching(self.level+1, [item[0], item[1]]))
             else:
                 candidate_set = Set(colidx[rowptr[item]:rowptr[item+1]])
+                candidate_set = candidate_set.filter(SmallerThan(self.path[-1]))
                 for v in self.path:
                     v_nb =  Set(colidx[rowptr[v]:rowptr[v+1]])
                     candidate_set = candidate_set.intersect(v_nb)
@@ -317,3 +320,4 @@ def subgraph_matching2():
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
     d = run.cpu.compile_and_run(code, torch_edge_list, torch_rowptr, torch_colidx)
+    print(d)

@@ -127,7 +127,7 @@ def print_cpp(ast):
         # rtype = 'torch::Tensor'
         # code += f'return obj_{ast.eval.name()};\n'
         rtype = 'int'
-        code += f'return 0;\n'
+        code += f'return zero_0;\n'
     else:
         raise TypeError('wrong output type', ast.eval)
 
