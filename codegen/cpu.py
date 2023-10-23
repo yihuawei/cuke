@@ -22,23 +22,21 @@ def to_string(ir):
                     code += to_string(e)
             code += "} \n"
             return code
-        
         case 'FilterLoop':
             code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
             for e in ir.body:
                 if e:
                     code += to_string(e)
-            
             if ir.cond:
                 code += f"if({to_string(ir.cond)}){{\n"
                 for e in ir.cond_body:
                     if e:
                         code += to_string(e)
                 code += "} \n"
-            
             code += "} \n"
             return code
-        
+        case 'Not':
+            return f"!{to_string(ir.dobject)}"
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
         case 'Literal':
@@ -48,13 +46,6 @@ def to_string(ir):
                 return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
-        case 'Condition':
-            code = f"if({to_string(ir.condition)}){{\n"
-            for e in ir.body:
-                if e:
-                    code += to_string(e)
-            code += "} \n"
-            return code
         case 'Search':
             code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
             return code
@@ -114,9 +105,6 @@ def print_cpp(ast):
     code = ''
     for d in ir:
         if d:
-            # if to_string(d)==None:
-            #     code += "None\n"
-            # else:
             code += to_string(d)
 
 
@@ -124,10 +112,8 @@ def print_cpp(ast):
         rtype = ast.dtype
         code += f'return {ast.eval.name()};\n'
     elif type(ast.eval) == Ndarray:
-        # rtype = 'torch::Tensor'
-        # code += f'return obj_{ast.eval.name()};\n'
-        rtype = 'int'
-        code += f'return zero_0;\n'
+        rtype = 'torch::Tensor'
+        code += f'return obj_{ast.eval.name()};\n'
     else:
         raise TypeError('wrong output type', ast.eval)
 

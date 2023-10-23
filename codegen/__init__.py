@@ -1,1 +1,2 @@
-import codegen.cpu, gpu
+import codegen.cpu
+import codegen.gpu

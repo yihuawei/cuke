@@ -5,9 +5,6 @@ import helpers
 import codegen
 
 # if input_fun:
-
-    
-
 #     # outer_loop.body.extend([Assignment(ret.eval, 0)])
 #     # 
 
@@ -87,22 +84,21 @@ def _extend_ast(callback_func, item):
     ret._gen_ir()
 
     def action(node, res):
-        if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
-            res.extend(node.decl)
-            node.decl.clear()
-        elif type(node) == TensorOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
-            node.decl.clear()
-            node.compute.clear()
-        elif type(node) == Set:
-            res.extend(node.decl)
-            node.decl.clear()
-        elif type(node) == SetOp:
-            res.extend(node.decl)
-            res.extend(node.compute)
-            node.decl.clear()
-            node.compute.clear()
+        if node.valid == True:
+            if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+                res.extend(node.decl)
+                node.valid = False
+            elif type(node) == TensorOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+                node.valid = False
+            elif type(node) == Set:
+                res.extend(node.decl)
+                node.valid = False
+            elif type(node) == SetOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+                node.valid = False
 
     t = helpers.Traversal(action)
     ret_ir = t(ret)
@@ -215,6 +211,18 @@ def gen_ir(node):
             node.decl = [Decl(node.eval)]
             node.compute = [Assignment(node.eval,  Search(IndexOffset(input_set.eval, 0), search_start, search_end, item.eval))]
         
+        elif node.op_type == 'difference':
+            input_set = node.operators[0]
+            input_set._gen_ir()
+            item = node.operators[1]
+            item._gen_ir()
+            search_start = 0
+            search_end = input_set.nelem[0].eval
+
+            node.eval = Scalar(node.dtype, node.name)
+            node.decl = [Decl(node.eval)]
+            node.compute = [Assignment(node.eval,  Not(Search(IndexOffset(input_set.eval, 0), search_start, search_end, item.eval)))]
+        
         elif node.op_type == 'smaller':
             val = node.operators[0]
             item = node.operators[1]
@@ -229,6 +237,32 @@ def gen_ir(node):
             node.operators[0]._gen_ir()
             node.eval = node.operators[0].storage.eval
             node.compute = [Assignment(node.eval, 1, '+')]
+
+        elif node.op_type == 'nelem':
+            input_set = node.operators[0]
+            input_set._gen_ir()
+            node.eval = input_set.nelem[0].eval 
+
+        elif node.op_type == 'sum':
+            input_set = node.operators[0]
+            input_storage = input_set.storage
+            input_set._gen_ir()
+            
+            node.eval = Scalar(node.dtype, node.name, val=0)
+            node.decl = [Decl(node.eval)]
+
+            sum_loop = Loop(0, input_set.nelem[0].eval, 1, [])
+            sum_loop.body.append(Assignment(node.eval, bind2(input_storage.eval, sum_loop.iterate), '+'))
+
+            node.compute.extend([sum_loop])
+        
+        elif node.op_type == 'ret_val':
+            program_body =  node.operators[0]
+            program_body._gen_ir()
+            ret_val =  node.operators[1]
+            ret_val._gen_ir()
+            node.eval = ret_val.eval
+
         # elif node.op_type == 'filter':
         #     input_set = node.operators[0]
         #     input_set._gen_ir()
@@ -296,25 +330,6 @@ def gen_ir(node):
         #     node.compute = [filter_loop]
 
         #     # node.compute.append(for_loop_assignment)
-        
-        elif node.op_type == 'nelem':
-            input_set = node.operators[0]
-            input_set._gen_ir()
-            node.eval = input_set.nelem[0].eval 
-
-        elif node.op_type == 'sum':
-            input_set = node.operators[0]
-            input_storage = input_set.storage
-            input_set._gen_ir()
-            
-            node.eval = Scalar(node.dtype, node.name, val=0)
-            node.decl = [Decl(node.eval)]
-
-
-            sum_loop = Loop(0, input_set.nelem[0].eval, 1, [])
-            sum_loop.body.append(Assignment(node.eval, bind2(input_storage.eval, sum_loop.iterate), '+'))
-
-            node.compute.extend([sum_loop])
             
             # node.compute = Search(input_set, search_start, search_end, item)
             # node.eval =  Var(f'search_res_of_{input_set.storage.name}', 'int', False)

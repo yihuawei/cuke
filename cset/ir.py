@@ -58,10 +58,6 @@ class FilterLoop(IR):
         self.cond = cond
         self.cond_body = cond_body
 
-
-
-
-
 class Search(IR):
     search_id = 0
     def __init__(self, dobject, start, end, item):
@@ -71,6 +67,10 @@ class Search(IR):
         self.item = item
         # self.res = res
         Search.search_id += 1
+
+class Not(IR):
+    def __init__(self, dobject):
+        self.dobject = dobject
 
 class Ref(IR):
     nrefs = 0

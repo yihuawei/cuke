@@ -54,6 +54,12 @@ class BinarySearch():
     def __call__(self, item):
         return SetOp('search', self.target_set, item)
 
+class Difference():
+    def __init__(self, target_set):
+        self.target_set = target_set
+    def __call__(self, item):
+        return SetOp('difference', self.target_set, item)
+
 class SmallerThan():
     def __init__(self, val):
         self.val = val
@@ -104,15 +110,23 @@ class Set(ASTNode):
         op = self.filter(BinarySearch(other))
         return op
     
+    def difference(self, other):
+        assert len(self._size())==1
+        assert len(other._size())==1
+        op = self.filter(Difference(other))
+        return op
+    
     def num_elem(self):
         op = SetOp('nelem', self)
         return op
     def sum(self):
         op = SetOp('sum', self)
         return op
-    
     def addone(self):
         op = SetOp('addone', self)
+        return op 
+    def ret_val(self, val):
+        op = SetOp('ret_val', self, val)
         return op 
     
 
@@ -154,6 +168,13 @@ class SetOp(Set):
             input_storage_name = input_storage.name
             res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
             super().__init__(Var(f'res_of_{res_storage_name}', 'int', False))
+        
+        elif op_type == 'difference':
+            input_storage = self.operators[0].storage
+            input_storage_name = input_storage.name
+            res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
+            super().__init__(Var(f'res_of_{res_storage_name}', 'int', False))
+        
         elif op_type == 'smaller':
             val_name = self.operators[0].name
             res_name = f'{op_type}_than_' + '_'.join([val_name])
@@ -176,5 +197,12 @@ class SetOp(Set):
             input_storage_name = input_storage.name
             res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
             super().__init__(Var(f'addone_of_{res_storage_name}', 'int', False))
+       
+        elif op_type == 'ret_val':
+            input_storage = self.operators[0].storage
+            input_storage_name = input_storage.name
+            res_storage_name = f'{op_type}_' + '_'.join([input_storage_name])
+            return_val = self.operators[1]
+            super().__init__(Var(f'ret_val_of_{res_storage_name}', 'int', False))
 
         
