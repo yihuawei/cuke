@@ -1,6 +1,9 @@
 from core.ast2ir import *
+from cset.ast2ir import *
 import helpers
 import batch
+import cset
+
 
 
 def to_string(ir):
@@ -19,6 +22,21 @@ def to_string(ir):
                     code += to_string(e)
             code += "} \n"
             return code
+        case 'FilterLoop':
+            code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
+            for e in ir.body:
+                if e:
+                    code += to_string(e)
+            if ir.cond:
+                code += f"if({to_string(ir.cond)}){{\n"
+                for e in ir.cond_body:
+                    if e:
+                        code += to_string(e)
+                code += "} \n"
+            code += "} \n"
+            return code
+        case 'Not':
+            return f"!{to_string(ir.dobject)}"
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
         case 'Literal':
@@ -28,6 +46,9 @@ def to_string(ir):
                 return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
+        case 'Search':
+            code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
+            return code
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
@@ -53,8 +74,6 @@ def to_string(ir):
             return str(ir)
 
 
-
-
 def gen_cpp(ast, ir):
     def action(node, res):
         if node.valid == True:
@@ -64,6 +83,11 @@ def gen_cpp(ast, ir):
                 res.extend(node.decl)
                 res.extend(node.compute)
             elif type(node) == batch.ast.BatchOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+            elif type(node) == cset.ast.Set:
+                res.extend(node.decl)
+            elif type(node) == cset.ast.SetOp:
                 res.extend(node.decl)
                 res.extend(node.compute)
 
