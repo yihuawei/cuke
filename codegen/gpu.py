@@ -15,6 +15,7 @@ def to_string(ir):
                 return f"{to_string(ir.lhs)} {ir.op}= {to_string(ir.rhs)};\n"
         case 'Loop':
             code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
+            # print(ir, ir.body, to_string(ir.body))
             for e in ir.body:
                 if e:
                     code += to_string(e)
@@ -22,13 +23,27 @@ def to_string(ir):
             return code
         case 'Scalar' | 'Ndarray' | 'Ref':
             return ir.name()
+        case 'Literal':
+            return str(ir.val)
         case 'Indexing':
             if type(ir.dobject) == Slice:
                 return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
+            # elif type(ir.dobject) == Pointer:
+            #     code = f'{to_string(ir.dobject)}['
+            #     for i in range(len(ir.dobject.dims)):
+            #         code += f'{to_string(ir.idx)}*{to_string(ir.dobject.dims[i])}'
+            #         if i<len(ir.dobject.dims)-1:
+            #             code += ' + '
+            #     # for item in ir.dobject.dims:
+            #     #     code += f'{to_string(ir.idx)}*{to_string(item)}'
+                    
+            #     code += ']'
+            #     return code
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
         case 'Decl':
             # variables are passed in as pytorch arguments
+            
             if type(ir.dobject) == Scalar:
                 if not ir.dobject.is_arg:
                     # it is a zero or one
@@ -48,6 +63,18 @@ def to_string(ir):
 
                 # code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
                 return code
+            elif type(ir.dobject) == Shared:
+                shape = ''
+                for i in range(len(ir.dobject.dobject.size)):
+                    shape += f'[{to_string(ir.dobject.dobject.size[i])}]'
+                return f'__shared__ {ir.dobject.dobject.dtype} {ir.dobject.dobject.name()}{shape};\n'
+            elif type(ir.dobject) == Pointer:
+                return f'{ir.dobject.dtype} {ir.dobject.name()};\n'
+            
+            elif type(ir.dobject) == Buffer or Uniq:
+                return f'torch::Tensor {ir.dobject.dobject.__name__}_{ir.dobject.__class__.__name__} = torch::empty({{{to_string(ir.dobject.dobject.size[0])}/16, 16}}, torch::TensorOptions(torch::k{"Int" if ir.dobject.dobject.dtype=="int" else "Float"}).device(torch::kCUDA));\n'
+            else:
+                return f'{to_string(ir.dobject)}'
             # elif type(ir.dobject) == Ref:
             #     code = f'{ir.dobject.dobject.dtype}* {ir.dobject.name()} = ({ir.dobject.dobject.dtype}*)&{ir.dobject.dobject.addr()}'
             #     return code
@@ -63,6 +90,26 @@ def to_string(ir):
             return f'{to_string(ir.dobject)} = __shfl_sync(0xffffffff, {to_string(ir.dobject)}, 0);\n'
         case 'SaveAtThread':
             return f'if (threadIdx.x == {ir.threadid}) {{\n {to_string(Assignment(ir.dst, ir.src))} }}\n'
+        case 'Uniq' | 'Buffer':
+            return f'{ir.dobject.__name__}_{ir.__class__.__name__}[{to_string(BlockIdx())}]'
+            # return f'[{to_string(BlockIdx())}]' 
+        case 'IF':
+            return f"{to_string(ir.left)} = {to_string(ir.condition)} ? {to_string(ir.true_var)} : {to_string(ir.false_var)};\n"
+        case 'Pointer':
+            return f'{ir.name()}'
+        case 'Access_ptr':
+            code = f'{to_string(ir.dobject)}['
+            for i in range(len(ir.idx)-1):
+                code += '('
+            for i in range(len(ir.idx)):
+                if i<len(ir.idx)-1:
+                    code += f'{to_string(ir.idx[i])}) * {to_string(ir.dobject.size[i+1])}'
+                    code += '+'
+                else:
+                    code += f'{to_string(ir.idx[i])}'
+            
+            code += ']'
+            return code
         case _:
             return str(ir)
 
@@ -118,6 +165,10 @@ def print_cuda(ast):
                 declare += to_string(d)
                 argsptr += f', obj_{d.dobject.name()}.packed_accessor32<{d.dobject.dtype}, {len(d.dobject.size)}, torch::RestrictPtrTraits>()'
                 ptrs += f', torch::PackedTensorAccessor32<{d.dobject.dtype}, {len(d.dobject.size)}, torch::RestrictPtrTraits> {d.dobject.name()}'
+            elif type(d) == Decl and type(d.dobject) in [Buffer, Uniq]:
+                declare += to_string(d)
+                argsptr += f', {d.dobject.dobject.__name__}_{d.dobject.__class__.__name__}.packed_accessor32<{d.dobject.dobject.dtype}, 2, torch::RestrictPtrTraits>()'
+                ptrs += f', torch::PackedTensorAccessor32<{d.dobject.dobject.dtype}, 2, torch::RestrictPtrTraits> {d.dobject.dobject.__name__}_{d.dobject.__class__.__name__}'
             else:
                 code += to_string(d)
     # print(declare)

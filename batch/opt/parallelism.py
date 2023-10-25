@@ -57,6 +57,7 @@ def add_reduction(ast):
     if ast.op_type == 'vec_mul_vec':
         # this inner_prod node is fused with upper layer
         eval = ast.eval
+        # print(codegen.cpu.to_string(eval), codegen.cpu.to_string(ast.operators[0].eval), codegen.cpu.to_string(ast.operators[1].eval))
         # iff eval is scalar, we need to add shfl_sync
         if not (isinstance(ast.operators[0].eval, Ndarray) or isinstance(ast.operators[1].eval, Ndarray)):
             for i in ast.compute:
@@ -95,13 +96,25 @@ def cuda_spec(ast):
         for body in ast.compute:
             body_list = []
             if isinstance(body, Loop):
+                # print(body.iterate, body.iterate.dobject)
                 ast.decl.append(Decl(body.iterate))
                 assign = Assignment(body.iterate, Expr(ThreadIdy(), Expr(BlockDimy(), BlockIdx(), '*'), '+'))
                 body_list.append(assign)
                 for item in body.body:
-                    if isinstance(item, Loop) and item.start == 0:
+                    if isinstance(item, Loop) and item.step == 1:
                         item.start = ThreadIdx()
                         item.step = BlockDimx()
+                    elif isinstance(item, Loop):
+                        for j in item.body:
+                            if isinstance(j, Loop) and j.step == 1:
+                                j.start = ThreadIdx()
+                                j.step = BlockDimx()
+                            elif isinstance(j, Loop):
+                                for k in j.body:
+                                    if isinstance(k, Loop) and k.step == 1:
+                                        k.start = ThreadIdx()
+                                        k.step = BlockDimx()
+
                     body_list.append(item)
                 compute_list.extend(body_list)
             ast.compute = compute_list
@@ -119,6 +132,13 @@ def add_cuda_spec(ast):
     
 
 def parallel(ast):
+    
+    # print(ast, ast.op_type, ast.compute)
+    # for i in ast.compute:
+    #     print(i, i.ast_ref, i.ast_ref.compute)
+    # print(ast.compute)
+    # for i in ast.compute:
+    #     print(codegen.gpu.to_string(i))
     
     add_cuda_spec(ast)
     add_reduction(ast)
