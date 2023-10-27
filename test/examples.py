@@ -128,7 +128,17 @@ def f36():
     return A.num_elem() + Set(T[40:]).num_elem() + Set(T[1:d]).num_elem()
 
 
+def compression():
+    input = Tensor('input', (1024, ))
+    input = input.reshape((32, 33))
+    x = (input * 1000).round()
+    y = x.apply(lambda y:y[1:31]-y[0:30], axis=0)
+    res = y.encoding()
 
+    ir = gen_ir(res)
+    code = codegen.cpu.print_cpp(ir)
+    code = codegen.cerebra.print_code(ir)
+    print(code)
 
 
 def conv1d_v1():

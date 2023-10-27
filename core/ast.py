@@ -35,7 +35,7 @@ def eval_const_expr(e):
         else:
             return None
     elif type(e) == Const:
-        return e.eval
+        return e.val
     else:
         return None
 
@@ -77,7 +77,13 @@ def is_same_size(s1, s2):
 
     return True
 
+
+def bigger(x, y):
+    return TensorOp('bigger', x, y)
+
 op_mapping = {'add':'+', 'sub':'-', 'mul':'*', 'floordiv':'/', 'truediv':'/'}
+math_op = ['round', 'abs']
+cmp_op = ['bigger', 'smaller']
 
 
 class ASTNode:
@@ -164,6 +170,15 @@ class Tensor(ASTNode):
             init = Const(0, dtype=self.dtype)
         return self.reduce(func, init, axis)
 
+    def max(self, axis=0):
+        func = lambda x, y: bigger(x, y)
+        size = self._size()[:axis] + self._size()[axis+1:]
+        if (len(size) > 0):
+            init = Zeros(size, dtype=self.dtype)
+        else:
+            init = Const(0, dtype=self.dtype)
+        return self.reduce(func, init, axis)
+
     def aggr(self, func, init, indices, axis=0, size=None):
         if callable(func):
             from core.ast2ir import  gen_ir
@@ -201,6 +216,13 @@ class Tensor(ASTNode):
 
     def _gen_ir(self):
         return core.ast2ir.gen_ir(self)
+
+    def round(self):
+        return TensorOp('round', self)
+
+    def abs(self):
+        return TensorOp('abs', self)
+
 
 class Ones(Tensor):
     nones = 0
@@ -242,9 +264,6 @@ class Const(Var):
         # slice is considered constant because once the slice is created its start, stop, step cannot be reassigned
         # however, start, stop, step themselves can be variables
         if dtype == 'slice':
-            # print(val.start)
-            # print(val.start._size())
-            # print(val.start.dtype)
             assert type(val.start) == int or is_int_var(val.start)
             assert type(val.stop) == int or is_int_var(val.stop)
             assert type(val.step) == int or is_int_var(val.step)
@@ -255,7 +274,7 @@ def einsum(exp: str, tensor1, tensor2):
     return TensorOp('einsum', tensor1, tensor2, exp)
 
 class TensorOp(Tensor):
-    Types = ['index', 'apply', 'reduce', 'aggr', 'einsum'] + list(op_mapping.keys())
+    Types = ['index', 'apply', 'reduce', 'aggr', 'einsum'] + list(op_mapping.keys()) + math_op + cmp_op
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -277,15 +296,23 @@ class TensorOp(Tensor):
                 if isinstance(opr, ASTNode):
                     opr.ref_count += 1
 
-        # TODO: implement scalar +/-/*/div tensor
-        if op_type in op_mapping:
-            ref_size = self.operators[0].fix_size + self.operators[0].ref_size
-            fix_size = []
+        if op_type in op_mapping or op_type in cmp_op:
+
+            if type(self.operators[0]) == int:
+                self.operators[0] = Const(self.operators[0], 'int')
+            elif type(operators[0]) == float:
+                self.operators[0] = Const(self.operators[0], 'float')
             if type(self.operators[1]) == int:
                 self.operators[1] = Const(self.operators[1], 'int')
             elif type(operators[1]) == float:
                 self.operators[1] = Const(self.operators[1], 'float')
-        
+            assert is_same_size(self.operators[0]._size(), self.operators[1]._size()) or len(self.operators[0]._size()) == 0 or len(self.operators[1]._size()) == 0
+            if len(self.operators[0]._size()) < len(self.operators[1]._size()):
+                self.operators[0], self.operators[1] = self.operators[1], self.operators[0]
+
+            ref_size = self.operators[0].fix_size + self.operators[0].ref_size
+            fix_size = []
+
         elif op_type == 'einsum':
             exp = self.operators[2]
             inputs, output = exp.split('->')
@@ -328,7 +355,14 @@ class TensorOp(Tensor):
                     step = Const(step, 'int')
 
                 self.operators[1] = Const(slice(start, stop, step), 'slice')
-                fix_size.append((stop - start)//step)
+                csize = eval_const_expr((stop - start)//step)
+                if csize != None:
+                    fix_size.append(csize)
+                else:
+                    if step.val == 1:
+                        fix_size.append(stop-start)
+                    else:
+                        fix_size.append((stop - start)//step)
             elif is_int_var(self.operators[1]):
                 self.operators[1] = self.operators[1]
             elif is_1dint_tensor(self.operators[1]):
@@ -397,6 +431,15 @@ class TensorOp(Tensor):
                 item2 = Var(f'item2_of_{self.operators[0].name}', self.operators[0].dtype, False)
             self.operators.append(item1)
             self.operators.append(item2)
+
+        elif op_type in math_op:
+            ref_size = self.operators[0]._size()
+            fix_size = []
+            if op_type == 'round':
+                dtype = 'int'
+            elif op_type == 'abs':
+                dtype = self.operators[0].dtype
+
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])
 

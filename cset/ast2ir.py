@@ -191,7 +191,8 @@ def gen_ir(node):
                 node.eval = node.storage.eval
 
                 if input_decl_ret:
-                    node.decl.extend([Decl(node.eval)])    
+                    node.decl.extend([Decl(node.eval)])
+                    # TODO: instead of copying output to node.eval, we can replace the lhs of assignment in ret_compute
                     outer_loop.body.extend([Assignment(bind2(node.eval , outer_loop.iterate), func_ret.eval)])
                 else:
                     node.storage.decl.clear()

@@ -378,6 +378,22 @@ def test19():
     print(code)
 
 
+def test20():
+    A = Tensor('A', (100, ), dtype='float')
+    x = Var('x', dtype='float')
+    res = A + 10
+    code = codegen.cpu.print_cpp(gen_ir(res))
+    print(code)
+
+
+def compression():
+    input = Tensor('input', (50, 32), dtype='float')
+    res = (input * 1000).round()
+    res = res.apply(lambda x:x[1:32]-x[0:31], axis=0)
+    res = res.abs().max(axis=1)
+    code = codegen.cpu.print_cpp(gen_ir(res))
+    print(code)
+
 
 
 def apply_test1():
@@ -464,7 +480,7 @@ def apply_test4():
 
     def apply_func(item):
         def apply_func2(item2):
-            return B[item2]
+            return B[item2] + 1
 
         return item.apply(apply_func2)
 
@@ -753,11 +769,15 @@ if __name__ == "__main__":
     # test17()
     # test18()
     # test19()
-    apply_test1()
-    apply_test2()
-    apply_test3()
-    apply_test4()
+    # test20()
+    compression()
+    # apply_test1()
+    # apply_test2()
+    # apply_test3()
+    # apply_test4()
     # test_aggr1()
+    # test27()
+    # test28()
     # spmv()
     # test_einsum1()
     # apply_test2()

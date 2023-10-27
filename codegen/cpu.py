@@ -9,7 +9,12 @@ import cset
 def to_string(ir):
     match ir.__class__.__name__:
         case 'Expr':
-            return f"({to_string(ir.left)}" + f" {ir.op} " + f"{to_string(ir.right)})"
+            if ir.op in op_mapping.values():
+                return f"({to_string(ir.left)}" + f" {ir.op} " + f"{to_string(ir.right)})"
+            elif ir.op == 'bigger':
+                return f"({to_string(ir.left)} > {to_string(ir.right)} ? ({to_string(ir.left)}) : ({to_string(ir.right)}))"
+            elif ir.op == 'smaller':
+                return f"({to_string(ir.left)} < {to_string(ir.right)} ? ({to_string(ir.left)}) : ({to_string(ir.right)}))"
         case 'Assignment':
             if ir.op is None:
                 return f"{to_string(ir.lhs)} = {to_string(ir.rhs)};\n"
@@ -43,12 +48,15 @@ def to_string(ir):
             return str(ir.val)
         case 'Indexing':
             if type(ir.dobject) == Slice:
-                return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
+                if ir.dobject.step == 1 or (type(ir.dobject.step) == Literal and ir.dobject.step.val == 1):
+                    return f'(({to_string(ir.dobject.start)})+({to_string(ir.idx)}))'
+                else:
+                    return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
-        case 'Search':
-            code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
-            return code
+        # case 'Search':
+        #     code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
+        #     return code
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
@@ -70,6 +78,8 @@ def to_string(ir):
 
                 code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
                 return code
+        case 'Math':
+            return f"{ir.type}({to_string(ir.val)})"
         case _:
             return str(ir)
 

@@ -1,13 +1,9 @@
 import sys
-sys.path.append('/data/backed_up/lihhu/CUKE/cuke')
 from codegen import *
 from batch.ast import *
-# from batch.opt.fusion_rules import *
-# from batch.opt.parallelism import *
-# from batch.opt.tiling import *
-from batch.opt import *
 import run
 import torch
+import batch.opt as opt
 
 def transE():
     nnodes = Var('nnodes')
@@ -28,11 +24,9 @@ def transE():
     # code = codegen.cpu.print_cpp(res._gen_ir())
 
     ast = res._gen_ir()
-    fuse_operators(ast)
-    
-    tile_loop(ast)
-    parallel(ast)
-    add_smem(ast)
+    opt.fusion_rules.fuse_operators(ast)
+    opt.parallelism.parallel(ast)
+    opt.smem.add_smem(ast)
     code = codegen.gpu.print_cuda(ast)
     print(code)
     # h = torch.randint(0, 9999, (4096, )).cuda(0)
@@ -256,9 +250,9 @@ def test():
 
 if __name__ == "__main__":
     # test() # bov success
-    # transE() # success
+    transE() # success
     # transH() # success
-    transR() # success
+    # transR() # success
     # transF() # success
     # RESCAL() # success
     

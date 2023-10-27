@@ -86,6 +86,11 @@ class Ndarray(DOject):
         return self.__name__
 
 
+class Math(IR):
+    def __init__(self, val, type):
+        self.val = val
+        self.type = type
+
 class Indexing(DOject):
     def __init__(self, dobject, idx):
         assert dobject != None and type(dobject) in (Slice, Ndarray, Indexing)

@@ -37,3 +37,4 @@ def fuse(scope, loop1, loop2):
             rebind_iterate(loop2.body, loop2.iterate, loop1.iterate)
             loop1.body.extend(loop2.body[:])
             scope.remove(loop2)
+
