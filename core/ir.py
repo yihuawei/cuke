@@ -47,10 +47,9 @@ class Loop(IR):
 
 
 class Scalar(DOject):
-    def __init__(self, dtype: str, name: str = None, is_arg = False, val = None):
+    def __init__(self, dtype: str, name: str = None, is_arg = False):
         super().__init__(dtype, [])
         self.__name__ = name if name else f's{self.dobject_id}'
-        self.val = val
         self.is_arg = is_arg
     def name(self):
         return self.__name__
@@ -73,10 +72,9 @@ class Slice(IR):
 
 
 class Ndarray(DOject):
-    def __init__(self, dtype: str, size: tuple, name: str = None, is_arg = False, val = None):
+    def __init__(self, dtype: str, size: tuple, name: str = None, is_arg = False):
         super().__init__(dtype, size)
         self.__name__ = name if name else f'arr{self.dobject_id}'
-        self.val = val # val is None, 0, or 1
         self.is_arg = is_arg
 
     def __getitem__(self, item):
@@ -114,10 +112,6 @@ class Indexing(DOject):
             self.ref_point = dobject.ref_point + len(idx.size)
 
         super().__init__(dobject.dtype, size)
-
-
-
-
 
 
 class Decl(IR):

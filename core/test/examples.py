@@ -389,10 +389,25 @@ def test20():
 def compression():
     input = Tensor('input', (50, 32), dtype='float')
     res = (input * 1000).round()
-    res = res.apply(lambda x:x[1:32]-x[0:31], axis=0)
+    res = res.apply(lambda x:x[0:32]-x[-1:31], axis=0)
     res = res.abs().max(axis=1)
     code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)
+
+
+def test_math1():
+    input = Tensor('input', (50, 32), dtype='float')
+    res = input[0].abs()
+    code = codegen.cpu.print_cpp(gen_ir(res))
+    print(code)
+
+def test_math2():
+    input = Tensor('input', (50, 32), dtype='float')
+    input = input.setval(0)
+    res = input[0].abs()
+    code = codegen.cpu.print_cpp(gen_ir(res))
+    print(code)
+
 
 
 
@@ -492,11 +507,10 @@ def apply_test4():
 
 
 
-
 def test_aggr1():
     A = Tensor('A', (10, 20))
-    indices = Tensor('idx', (30, ), dtype='int')
-    res = A.aggr_sum(indices)
+    indices = Tensor('idx', (A._size()[0], ), dtype='int')
+    res = A.aggr_max(indices)
 
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
@@ -716,10 +730,9 @@ def test26():
     res = run.cpu.compile_and_run(code, A)
     print(res, torch.sum(A))
 
-def test27():
+def reduce_test1():
     A = Tensor('a', (10, 20))
-    init = Zeros(A[1]._size())
-    ast = A.reduce(lambda a,b: a+b, init, axis=1)
+    ast = A.reduce(lambda a,b: a+b, lambda res: res.setval(0), axis=1)
     ir = gen_ir(ast)
     print(helpers.get_input_nodes(ir))
     code = codegen.cpu.print_cpp(ir)
@@ -729,7 +742,7 @@ def test27():
     res = run.cpu.compile_and_run(code, A)
     print(res - torch.sum(A, dim=1))
 
-def test28():
+def reduce_test2():
     A = Tensor('a', (10, 20, 5))
     ast = A.sum(axis=1)
     ir = gen_ir(ast)
@@ -740,6 +753,30 @@ def test28():
     res = run.cpu.compile_and_run(code, A)
     print(res - torch.sum(A, dim=1))
 
+
+def reduce_test3():
+    A = Tensor('a', (10, 20, 5))
+    ast = A.max(axis=1)
+    ir = gen_ir(ast)
+    print(helpers.get_input_nodes(ir))
+    code = codegen.cpu.print_cpp(ir)
+
+    A = torch.rand(10, 20, 5)
+    res = run.cpu.compile_and_run(code, A)
+    print(res - torch.max(A, dim=1).values)
+
+
+def reduce_test4():
+    A = Tensor('a', (10,))
+    ast = A.max()
+    ir = gen_ir(ast)
+    print(helpers.get_input_nodes(ir))
+    code = codegen.cpu.print_cpp(ir)
+
+    A = torch.rand(10, )
+    res = run.cpu.compile_and_run(code, A)
+    print(res - torch.max(A))
+
 def test29():
     A = Tensor('A', (10, ))
     B = Tensor('B', (10, ), dtype='int')
@@ -749,8 +786,29 @@ def test29():
     print(code)
 
 
+def conv1d_v1():
+    A = Tensor('a', (100, ))
+    ast = A[0:97] + A[1:98] + A[2:99]
+    ir = gen_ir(ast)
+    print(helpers.get_input_nodes(ir))
+    code = codegen.cpu.print_cpp(ir)
+    print(code)
+
+def conv1d_v2(width):
+    A = Tensor('a', (100, ))
+    res = Tensor('t', A[width:]._size()).setval(0)
+    for i in range(width):
+        res = res + A[i:i+97]
+    ir = gen_ir(res)
+    print(helpers.get_input_nodes(ir))
+    code = codegen.cpu.print_cpp(ir)
+    print(code)
+
+
 
 if __name__ == "__main__":
+    # conv1d_v1()
+    # conv1d_v2(3)
     # test1()
     # test2()
     # test3()
@@ -770,14 +828,18 @@ if __name__ == "__main__":
     # test18()
     # test19()
     # test20()
-    compression()
+    # compression()
+    # test_math1()
+    # test_math2()
     # apply_test1()
     # apply_test2()
     # apply_test3()
     # apply_test4()
+    reduce_test1()
+    reduce_test2()
+    reduce_test3()
+    reduce_test4()
     # test_aggr1()
-    # test27()
-    # test28()
     # spmv()
     # test_einsum1()
     # apply_test2()

@@ -54,28 +54,20 @@ def to_string(ir):
                     return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
-        # case 'Search':
-        #     code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
-        #     return code
+        case 'Search':
+            code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
+            return code
         case 'Decl':
             # variables are passed in as pytorch arguments
             if type(ir.dobject) == Scalar:
                 if not ir.dobject.is_arg:
-                    # it is a zero or one
-                    if ir.dobject.val != None:
-                        return f"{ir.dobject.dtype} {ir.dobject.name()} = {to_string(ir.dobject.val)};\n"
-                    else:
-                        return f"{ir.dobject.dtype} {ir.dobject.name()};\n"
+                    return f"{ir.dobject.dtype} {ir.dobject.name()};\n"
                 else:
                     return ''
             elif type(ir.dobject) == Ndarray:
                 code = ''
                 if not ir.dobject.is_arg:
-                    if ir.dobject.val != None:
-                        code = f'torch::Tensor obj_{ir.dobject.name()} = torch::{"ones" if ir.dobject.val == 1 else "zeros"}({{{",".join([to_string(s) for s in ir.dobject.size])}}}, at::k{"Int" if ir.dobject.dtype=="int" else "Float"});\n'
-                    else:
-                        code = f'torch::Tensor obj_{ir.dobject.name()} = torch::empty({{{",".join([to_string(s) for s in ir.dobject.size])}}}, at::k{"Int" if ir.dobject.dtype=="int" else "Float"});\n'
-
+                    code = f'torch::Tensor obj_{ir.dobject.name()} = torch::empty({{{",".join([to_string(s) for s in ir.dobject.size])}}}, at::k{"Int" if ir.dobject.dtype=="int" else "Float"});\n'
                 code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
                 return code
         case 'Math':
@@ -87,7 +79,7 @@ def to_string(ir):
 def gen_cpp(ast, ir):
     def action(node, res):
         if node.valid == True:
-            if type(node) == Var or type(node) == One or type(node) == Zero or type(node) == Ones or type(node) == Zeros or type(node) == Tensor:
+            if type(node) == Var or type(node) == Tensor:
                 res.extend(node.decl)
             elif type(node) == TensorOp:
                 res.extend(node.decl)

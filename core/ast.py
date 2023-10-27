@@ -1,14 +1,23 @@
 import copy
 import core
 
+MIN_INT = -2147483648
+MAX_INT = 2147483647
+
+op_mapping = {'add':'+', 'sub':'-', 'mul':'*', 'floordiv':'/', 'truediv':'/'}
+math_op = ['round', 'abs']
+cmp_op = ['bigger', 'smaller']
+func_op = ['index', 'apply', 'reduce', 'aggr', 'einsum', 'setval']
+
+
 def is_int_var(v):
-    return isinstance(v, Tensor) and v.dtype == 'int' and len(v._size()) == 0
+    return isinstance(v, Tensor) and v.dtype == 'int' and len(v.ref_size) == 0
 
 def is_scalar(v):
-    return isinstance(v, int|float) or (isinstance(v, Tensor) and len(v._size()) == 0)
+    return isinstance(v, int|float) or (isinstance(v, Tensor) and len(v.ref_size) == 0)
 
 def is_1dint_tensor(v):
-    return isinstance(v, Tensor) and v.dtype == 'int' and len(v._size()) == 1
+    return isinstance(v, Tensor) and v.dtype == 'int' and len(v.ref_size) == 1
 
 
 def eval_const_expr(e):
@@ -81,9 +90,8 @@ def is_same_size(s1, s2):
 def bigger(x, y):
     return TensorOp('bigger', x, y)
 
-op_mapping = {'add':'+', 'sub':'-', 'mul':'*', 'floordiv':'/', 'truediv':'/'}
-math_op = ['round', 'abs']
-cmp_op = ['bigger', 'smaller']
+def smaller(x, y):
+    return TensorOp('smaller', x, y)
 
 
 class ASTNode:
@@ -147,41 +155,37 @@ class Tensor(ASTNode):
         if callable(func):
             from core.ast2ir import gen_ir
             op = TensorOp('apply', self, func, axis)
-            gen_ir(op)
             return op
         else:
             raise TypeError('must apply a callable function')
 
     def reduce(self, func, init, axis=0):
-        if callable(func):
+        if callable(func) and callable(init):
             from core.ast2ir import  gen_ir
             op = TensorOp('reduce', self, func, init, axis)
-            gen_ir(op)
             return op
         else:
             raise TypeError('reduce must use a callable function')
 
     def sum(self, axis=0):
         func = lambda x, y: x + y
-        size = self._size()[:axis] + self._size()[axis+1:]
-        if (len(size) > 0):
-            init = Zeros(size, dtype=self.dtype)
-        else:
-            init = Const(0, dtype=self.dtype)
+        init = lambda x: x.setval(0)
         return self.reduce(func, init, axis)
 
     def max(self, axis=0):
         func = lambda x, y: bigger(x, y)
-        size = self._size()[:axis] + self._size()[axis+1:]
-        if (len(size) > 0):
-            init = Zeros(size, dtype=self.dtype)
-        else:
-            init = Const(0, dtype=self.dtype)
+        init = lambda x: x.setval(MIN_INT)
         return self.reduce(func, init, axis)
 
+    def min(self, axis=0):
+        func = lambda x, y: smaller(x, y)
+        init = lambda x: x.setval(MAX_INT)
+        return self.reduce(func, init, axis)
+
+
     def aggr(self, func, init, indices, axis=0, size=None):
-        if callable(func):
-            from core.ast2ir import  gen_ir
+        if callable(func) and callable(init):
+            from core.ast2ir import gen_ir
             op = TensorOp('aggr', self, func, init, indices, axis, size)
             gen_ir(op)
             return op
@@ -190,14 +194,23 @@ class Tensor(ASTNode):
 
     def aggr_sum(self, indices, axis=0, size=None):
         func = lambda x, y: x + y
-        s = self._size()[:axis] + self._size()[axis+1:]
-        if (len(s) > 0):
-            init = Zeros(s, dtype=self.dtype)
-        else:
-            init = Const(0, dtype=self.dtype)
+        init = lambda x: x.setval(0)
+        return self.aggr(func, init, indices, axis, size)
+
+    def aggr_max(self, indices, axis=0, size=None):
+        func = lambda x, y: bigger(x, y)
+        init = lambda x: x.setval(MIN_INT)
+        return self.aggr(func, init, indices, axis, size)
+
+    def aggr_min(self, indices, axis=0, size=None):
+        func = lambda x, y: smaller(x, y)
+        init = lambda x: x.setval(MAX_INT)
         return self.aggr(func, init, indices, axis, size)
 
 
+
+    def setval(self, val):
+        return TensorOp('setval', self, val)
 
     def _size(self):
         return self.fix_size + self.ref_size
@@ -214,8 +227,7 @@ class Tensor(ASTNode):
         else:
             return Const(0, dtype='int')
 
-    def _gen_ir(self):
-        return core.ast2ir.gen_ir(self)
+
 
     def round(self):
         return TensorOp('round', self)
@@ -223,18 +235,21 @@ class Tensor(ASTNode):
     def abs(self):
         return TensorOp('abs', self)
 
+    def _gen_ir(self):
+        return core.ast2ir.gen_ir(self)
 
-class Ones(Tensor):
-    nones = 0
-    def __init__(self, size, dtype='float'):
-        super.__init__(f'ones_{Ones.nones}', size, dtype, [], False)
-        Ones.nones += 1
-
-class Zeros(Tensor):
-    nzeros = 0
-    def __init__(self, size, dtype='float'):
-        super().__init__(f'zeros_{Zeros.nzeros}', size, dtype, [], False)
-        Zeros.nzeros += 1
+# TODO: Ones, Zeros can be remove since Tensor support setval
+# class Ones(Tensor):
+#     nones = 0
+#     def __init__(self, size, dtype='float'):
+#         super.__init__(f'ones_{Ones.nones}', size, dtype, [], False)
+#         Ones.nones += 1
+#
+# class Zeros(Tensor):
+#     nzeros = 0
+#     def __init__(self, size, dtype='float'):
+#         super().__init__(f'zeros_{Zeros.nzeros}', size, dtype, [], False)
+#         Zeros.nzeros += 1
 
 
 class Var(Tensor):
@@ -242,17 +257,17 @@ class Var(Tensor):
         super().__init__(name, [], dtype, [], is_arg)
 
 
-class One(Var):
-    none = 0
-    def __init__(self, dtype='float'):
-        super().__init__(f'one_{One.none}',  dtype, False)
-        One.none += 1
-
-class Zero(Var):
-    nzero = 0
-    def __init__(self, dtype='float'):
-        super().__init__(f'zero_{Zero.nzero}',  dtype, False)
-        Zero.nzero += 1
+# class One(Var):
+#     none = 0
+#     def __init__(self, dtype='float'):
+#         super().__init__(f'one_{One.none}',  dtype, False)
+#         One.none += 1
+#
+# class Zero(Var):
+#     nzero = 0
+#     def __init__(self, dtype='float'):
+#         super().__init__(f'zero_{Zero.nzero}',  dtype, False)
+#         Zero.nzero += 1
 
 
 # const is var without name
@@ -274,7 +289,7 @@ def einsum(exp: str, tensor1, tensor2):
     return TensorOp('einsum', tensor1, tensor2, exp)
 
 class TensorOp(Tensor):
-    Types = ['index', 'apply', 'reduce', 'aggr', 'einsum'] + list(op_mapping.keys()) + math_op + cmp_op
+    Types = func_op + list(op_mapping.keys()) + math_op + cmp_op
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -374,11 +389,6 @@ class TensorOp(Tensor):
             assert type(self.operators[2]) == int
             axis = self.operators[2]
             self.operators[2] = Const(axis, 'int')
-            # size cannot be determined except for axis dimension, so set -1
-            ref_size = [self.operators[0]._size()[axis], -1]
-            fix_size = []
-            # data type also cannot be determined
-            dtype = None
 
             data_size = self.operators[0]._size()
             item_size = data_size[:axis] + data_size[axis + 1:]
@@ -387,7 +397,13 @@ class TensorOp(Tensor):
                               self.operators[0].dtype, [], False)
             else:
                 item = Var(f'item_of_{self.operators[0].name}', self.operators[0].dtype, False)
+
+            ret = self.operators[1](item)
+            dtype = ret.dtype
+            ref_size = [self.operators[0]._size()[axis]] + ret._size()
+            fix_size = []
             self.operators.append(item)
+            self.operators.append(ret)
 
         elif op_type == 'reduce':
             assert type(self.operators[3]) == int
@@ -404,8 +420,10 @@ class TensorOp(Tensor):
             else:
                 item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)
                 item2 = Var(f'item2_of_{self.operators[0].name}', self.operators[0].dtype, False)
+
             self.operators.append(item1)
             self.operators.append(item2)
+            self.operators.append(self.operators[1](item1, item2))
 
         elif op_type == 'aggr':
             assert is_1dint_tensor(self.operators[3])
@@ -413,7 +431,7 @@ class TensorOp(Tensor):
             axis = self.operators[4]
             self.operators[4] = Const(axis, 'int')
             if self.operators[5] == None:
-                self.operators[5] = self.operators[0]._size()[axis]
+                self.operators[5] = self.operators[3].ref_size[0]
             else:
                 assert is_int_var(self.operators[5])
                 if type(self.operators[5]) == int:
@@ -431,14 +449,23 @@ class TensorOp(Tensor):
                 item2 = Var(f'item2_of_{self.operators[0].name}', self.operators[0].dtype, False)
             self.operators.append(item1)
             self.operators.append(item2)
+            self.operators.append(self.operators[1](item1, item2))
 
         elif op_type in math_op:
-            ref_size = self.operators[0]._size()
+            ref_size = self.operators[0].ref_size
             fix_size = []
             if op_type == 'round':
                 dtype = 'int'
             elif op_type == 'abs':
                 dtype = self.operators[0].dtype
+
+        elif op_type == 'setval':
+            ref_size = self.operators[0].ref_size
+            fix_size = self.operators[0].fix_size
+            if type(self.operators[1]) == int:
+                self.operators[1] = Const(self.operators[1], 'int')
+            elif type(self.operators[1]) == int:
+                self.operators[1] = Const(self.operators[1], 'float')
 
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])
@@ -446,6 +473,11 @@ class TensorOp(Tensor):
         super().__init__(name, ref_size, dtype, fix_size)
 
         self.op_type = op_type
+
+        # call the init function for reduce and aggr
+        if self.op_type in ('reduce', 'aggr'):
+            self.operators[2] = self.operators[2](self)
+
 
 
 

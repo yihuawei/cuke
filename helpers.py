@@ -16,14 +16,14 @@ class Traversal:
         else:
             visited.add(node)
 
-        if type(node) == Var or type(node) == One or type(node) == Zero:
+        if type(node) == Var:
             self.action(node, res)
         elif type(node) == Const:
             if node.dtype == 'slice':
                 self._post_traverse(node.val.start, visited, res)
                 self._post_traverse(node.val.stop, visited, res)
                 self._post_traverse(node.val.step, visited, res)
-        elif type(node) == Tensor or type(node) == Ones or type(node) == Zeros:
+        elif type(node) == Tensor:
             for s in node.fix_size:
                 self._post_traverse(s, visited, res)
             for s in node.ref_size:

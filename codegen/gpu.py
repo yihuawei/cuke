@@ -46,22 +46,13 @@ def to_string(ir):
             
             if type(ir.dobject) == Scalar:
                 if not ir.dobject.is_arg:
-                    # it is a zero or one
-                    if ir.dobject.val != None:
-                        return f"{ir.dobject.dtype} {ir.dobject.name()} = {to_string(ir.dobject.val)};\n"
-                    else:
-                        return f"{ir.dobject.dtype} {ir.dobject.name()};\n"
+                    return f"{ir.dobject.dtype} {ir.dobject.name()};\n"
                 else:
                     return ''
             elif type(ir.dobject) == Ndarray:
                 code = ''
                 if not ir.dobject.is_arg:
-                    if ir.dobject.val != None:
-                        code = f'torch::Tensor obj_{ir.dobject.name()} = torch::{"ones" if ir.dobject.val == 1 else "zeros"}({{{",".join([to_string(s) for s in ir.dobject.size])}}}, torch::TensorOptions(torch::k{"Int" if ir.dobject.dtype=="int" else "Float"}).device(torch::kCUDA));\n'
-                    else:
-                        code = f'torch::Tensor obj_{ir.dobject.name()} = torch::empty({{{",".join([to_string(s) for s in ir.dobject.size])}}}, torch::TensorOptions(torch::k{"Int" if ir.dobject.dtype=="int" else "Float"}).device(torch::kCUDA));\n'
-
-                # code += f'auto {ir.dobject.name()} = obj_{ir.dobject.name()}.accessor<{ir.dobject.dtype}, {len(ir.dobject.size)}>();\n'
+                    code = f'torch::Tensor obj_{ir.dobject.name()} = torch::empty({{{",".join([to_string(s) for s in ir.dobject.size])}}}, torch::TensorOptions(torch::k{"Int" if ir.dobject.dtype=="int" else "Float"}).device(torch::kCUDA));\n'
                 return code
             elif type(ir.dobject) == Shared:
                 shape = ''

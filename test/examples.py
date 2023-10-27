@@ -141,23 +141,7 @@ def compression():
     print(code)
 
 
-def conv1d_v1():
-    A = Tensor('a', (100, ))
-    ast = A[0:97] + A[1:98] + A[2:99]
-    ir = gen_ir(ast)
-    print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.print_cpp(ir)
-    print(code)
 
-def conv1d_v2(width):
-    A = Tensor('a', (100, ))
-    res = Zeros(A[width:]._size())
-    for i in range(width):
-        res = res + A[i:i+97]
-    ir = gen_ir(res)
-    print(helpers.get_input_nodes(ir))
-    code = codegen.cpu.print_cpp(ir)
-    print(code)
 
 import numpy as np
 from cset.ast2ir import *
