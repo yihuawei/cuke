@@ -804,13 +804,21 @@ def conv1d_v2(width):
     code = codegen.cpu.print_cpp(ir)
     print(code)
 
+def cmp_test():
+    A = Tensor('a', (10, 20))
+    B = Tensor('b', (10, 20))
+    res = bigger(A, B)
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
 
 
 if __name__ == "__main__":
     # conv1d_v1()
     # conv1d_v2(3)
-    # test1()
-    # test2()
+    test1()
+    test2()
     # test3()
     # test4()
     # test6()
@@ -831,17 +839,19 @@ if __name__ == "__main__":
     # compression()
     # test_math1()
     # test_math2()
-    # apply_test1()
-    # apply_test2()
+    apply_test1()
+    apply_test2()
     # apply_test3()
     # apply_test4()
     reduce_test1()
     reduce_test2()
-    reduce_test3()
-    reduce_test4()
+    # reduce_test3()
+    # reduce_test4()
     # test_aggr1()
     # spmv()
-    # test_einsum1()
+    test_einsum1()
     # apply_test2()
     # test_apply5()
     # test27()
+
+    cmp_test()

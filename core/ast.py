@@ -98,12 +98,12 @@ class ASTNode:
     nuniq = 0
     def __init__(self):
         self.decl = []
-        self.compute = []
         self.eval = None
         self.ref_count = 0
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
         self.valid = True
+
 
 
 class Tensor(ASTNode):
@@ -238,36 +238,11 @@ class Tensor(ASTNode):
     def _gen_ir(self):
         return core.ast2ir.gen_ir(self)
 
-# TODO: Ones, Zeros can be remove since Tensor support setval
-# class Ones(Tensor):
-#     nones = 0
-#     def __init__(self, size, dtype='float'):
-#         super.__init__(f'ones_{Ones.nones}', size, dtype, [], False)
-#         Ones.nones += 1
-#
-# class Zeros(Tensor):
-#     nzeros = 0
-#     def __init__(self, size, dtype='float'):
-#         super().__init__(f'zeros_{Zeros.nzeros}', size, dtype, [], False)
-#         Zeros.nzeros += 1
-
 
 class Var(Tensor):
     def __init__(self, name, dtype='int', is_arg=True):
         super().__init__(name, [], dtype, [], is_arg)
 
-
-# class One(Var):
-#     none = 0
-#     def __init__(self, dtype='float'):
-#         super().__init__(f'one_{One.none}',  dtype, False)
-#         One.none += 1
-#
-# class Zero(Var):
-#     nzero = 0
-#     def __init__(self, dtype='float'):
-#         super().__init__(f'zero_{Zero.nzero}',  dtype, False)
-#         Zero.nzero += 1
 
 
 # const is var without name
@@ -293,6 +268,9 @@ class TensorOp(Tensor):
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
+        self.compute = []
+        self.compute_block = []
+        self.output_order = []
 
          # TODO: infer result data type
         dtype = operators[0].dtype
@@ -332,8 +310,8 @@ class TensorOp(Tensor):
             exp = self.operators[2]
             inputs, output = exp.split('->')
             input1, input2 = inputs.split(',')
-            op1_size = self.operators[0].fix_size + self.operators[0].ref_size
-            op2_size = self.operators[1].fix_size + self.operators[1].ref_size
+            op1_size = self.operators[0]._size()
+            op2_size = self.operators[1]._size()
             ref_size = []
             fix_size = []
             for i in output:
