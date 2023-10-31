@@ -269,7 +269,6 @@ class TensorOp(Tensor):
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
         self.compute = []
-        self.compute_block = []
         self.output_order = []
 
          # TODO: infer result data type
@@ -440,9 +439,10 @@ class TensorOp(Tensor):
         elif op_type == 'setval':
             ref_size = self.operators[0].ref_size
             fix_size = self.operators[0].fix_size
+            assert is_scalar(self.operators[1])
             if type(self.operators[1]) == int:
                 self.operators[1] = Const(self.operators[1], 'int')
-            elif type(self.operators[1]) == int:
+            elif type(self.operators[1]) == float:
                 self.operators[1] = Const(self.operators[1], 'float')
 
 
@@ -456,8 +456,4 @@ class TensorOp(Tensor):
         if self.op_type in ('reduce', 'aggr'):
             self.operators[2] = self.operators[2](self)
 
-
-
-
-
-
+        self.input_orders = [None for o in self.operators]

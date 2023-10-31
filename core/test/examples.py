@@ -847,7 +847,7 @@ if __name__ == "__main__":
     reduce_test2()
     # reduce_test3()
     # reduce_test4()
-    # test_aggr1()
+    test_aggr1()
     # spmv()
     test_einsum1()
     # apply_test2()

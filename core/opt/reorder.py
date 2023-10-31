@@ -84,7 +84,6 @@ def output_reorder(node, dim_order, tile_size):
     assert len(node.compute) == 1
     assert len(dim_order) == len(tile_size) and len(dim_order) > 0
     loop = node.compute[0]
-    num_tiled_loops = len(dim_order)
 
     for i in range(len(node._size())):
         # add the nontiled dimensions
@@ -103,35 +102,37 @@ def output_reorder(node, dim_order, tile_size):
     tile_loops = []
     reorder_nest = []
     new_indices = []
+    output_order = []
     for i in range(len(dim_order)):
         l = loop_nest[dim_order[i]]
         if tile_size[i] > 0:
             tl = Loop(l.start, l.end, tile_size[i], [])
-            tile_loops.append(tl)
             if tile_size[i] == 1:
                 new_indices.append(tl.iterate)
+        else:
+            tl = None
+        tile_loops.append(tl)
         reorder_nest.append(l)
+        output_order.append((dim_order[i], tl))
+
+    for i in range(len(reorder_nest)):
+        ts = tile_size[i]
+        if ts > 1:
+            tl = tile_loops[i]
+            new_l = Loop(tl.iterate, Expr(Expr(tl.iterate, ts, '+'), l.end,'smaller'), l.step, [])
+        elif ts == 1:
+            new_l = None
+        else:
+            l = reorder_nest[i]
+            new_l = Loop(l.start, l.end, l.step, [])
+        if new_l != None:
+            tile_loops.append(new_l)
+            new_indices.append(new_l.iterate)
+
+    tile_loops = [l for l in tile_loops if l != None]
 
     for i in range(len(tile_loops)-1, 0, -1):
         tile_loops[i-1].body.append(tile_loops[i])
-
-
-    node.compute_block = tile_loops[-1]
-    for i in range(len(reorder_nest)):
-        l = reorder_nest[i]
-        if i < num_tiled_loops:
-            tl = tile_loops[i]
-            ts = tile_size[i]
-            if ts > 1:
-                new_l = Loop(tl.iterate, Expr(Expr(tl.iterate, ts, '+'), l.end,'smaller'), l.step, [])
-            else:
-                new_l = None
-        else:
-            new_l = Loop(l.start, l.end, l.step, [])
-        if new_l != None:
-            tile_loops[-1].body.append(new_l)
-            tile_loops.append(new_l)
-            new_indices.append(new_l.iterate)
 
     body = loop_nest[-1].body
 
@@ -142,7 +143,7 @@ def output_reorder(node, dim_order, tile_size):
 
     tile_loops[-1].body.extend(body)
     node.compute = [tile_loops[0]]
-    node.output_order = [(dim_order[i], tile_size[i]) for i in range(len(dim_order))]
+    node.output_order = output_order
 
 
 
@@ -155,15 +156,15 @@ if __name__ == "__main__":
     C = Tensor('c', (10, 30))
     res1 = A @ B
     ir1 = res1._gen_ir()
+    print(res1.input_orders)
     print(res1.output_order)
-    print(res1.compute_block)
-    output_reorder(res1, [1, 0], [5, 10])
-    print(res1.output_order)
-
     code = codegen.cpu.print_cpp(ir1)
     print(code)
 
     res2 = res1 + C
     ir2 = res2._gen_ir()
+    print(res2.input_orders)
+    print(res2.output_order)
+
 
 
