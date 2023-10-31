@@ -228,12 +228,12 @@ def gen_ir(node):
                     mapping[all_indices[i]] = len(all_loops)
                     l = Loop(0, node.operators[0].eval.size[pos1], 1, [])
                     all_loops.append(l)
-                    node.input_orders[0].append((i, l))
+                    node.input_orders[0].append((len(node.input_orders[0]), l))
                 elif (pos1 < 0 and pos2 >= 0):
                     mapping[all_indices[i]] = len(all_loops)
                     l = Loop(0, node.operators[1].eval.size[pos2], 1, [])
                     all_loops.append(l)
-                    node.input_orders[1].append((i, l))
+                    node.input_orders[1].append((len(node.input_orders[1]), l))
 
             reduce_begins = len(all_loops)
 
@@ -244,8 +244,8 @@ def gen_ir(node):
                     mapping[all_indices[i]] = len(all_loops)
                     l = Loop(0, node.operators[0].eval.size[pos1], 1, [])
                     all_loops.append(l)
-                    node.input_orders[0].append((i, l))
-                    node.input_orders[1].append((i, l))
+                    node.input_orders[0].append((len(node.input_orders[0]), l))
+                    node.input_orders[1].append((len(node.input_orders[1]), l))
 
             for i in all_indices:
                 pos1 = input1.find(i)
