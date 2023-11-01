@@ -120,7 +120,7 @@ def fuse_elementwise(ast):
     else:
         return
     
-    if type(ast.operators[1]) == BatchOp and ast.op_type in core.ast.op_mapping.keys():
+    if type(ast.operators[1]) == BatchOp and ast.op_type in core.ast.arith_op.keys():
         # fuse operators1 into elementwise
         if ast.item_type == 'vec' and ast.operators[1].item_type == ast.item_type:
             # check if type of operator1 is vector
@@ -156,7 +156,7 @@ def fuse_elementwise(ast):
             raise ValueError(f"Tensor shape are not the same. Expect 'vec' or 'scal' but found ast: '{ast.item_type}' and operators[1]: '{ast.operators[1].item_type}'.")
 
     
-    if type(ast.operators[0]) == BatchOp and ast.op_type in core.ast.op_mapping.keys():
+    if type(ast.operators[0]) == BatchOp and ast.op_type in core.ast.arith_op.keys():
         # fuse operators0 into elementwise
         if ast.item_type == 'vec' and ast.operators[0].item_type == ast.item_type:
             # check if type of operator1 is vector
@@ -408,7 +408,7 @@ def fuse_operators(ast):
     #     ast.eval = a
     #     outer_loop = swap_arr_to_reg(outer_loop, pre_arr, a)
 
-    if type(ast.operators[1]) == BatchOp and ast.op_type in core.ast.op_mapping.keys():
+    if type(ast.operators[1]) == BatchOp and ast.op_type in core.ast.arith_op.keys():
         # fuse operators1 into elementwise
         if ast.item_type == 'vec' and ast.operators[1].item_type == ast.item_type:
             # check if type of operator1 is vector
@@ -419,7 +419,7 @@ def fuse_operators(ast):
                 loop = ast.operators[1].compute[0]
 
                 loop_merge(outer_loop, loop)
-                if ast.operators[1].op_type in core.ast.op_mapping.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[1].op_type in core.ast.arith_op.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[1].eval.dtype, val=0)
                     pre_arr = ast.operators[1].eval
                     ast.operators[1].decl.pop(0)
@@ -439,7 +439,7 @@ def fuse_operators(ast):
                 loop = ast.operators[1].compute[0]
                 
                 loop_merge(outer_loop, loop)
-                if ast.operators[1].op_type in core.ast.op_mapping.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[1].op_type in core.ast.arith_op.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[1].eval.dtype, val=0)
                     pre_arr = ast.operators[1].eval
                     ast.operators[1].decl.pop(0)
@@ -457,7 +457,7 @@ def fuse_operators(ast):
             raise ValueError(f"Tensor shape are not the same. Expect 'vec' or 'scal' but found ast: '{ast.item_type}' and operators[1]: '{ast.operators[1].item_type}'.")
 
     
-    if type(ast.operators[0]) == BatchOp and ast.op_type in core.ast.op_mapping.keys():
+    if type(ast.operators[0]) == BatchOp and ast.op_type in core.ast.arith_op.keys():
         # fuse operators0 into elementwise
         if ast.item_type == 'vec' and ast.operators[0].item_type == ast.item_type:
             # check if type of operator0 is vector
@@ -467,7 +467,7 @@ def fuse_operators(ast):
                 outer_loop = ast.compute[0]
                 loop = ast.operators[0].compute[0]
                 loop_merge(outer_loop, loop)
-                if ast.operators[0].op_type in core.ast.op_mapping.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[0].op_type in core.ast.arith_op.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[0].eval.dtype, val=0)
                     pre_arr = ast.operators[0].eval
                     ast.operators[0].decl.pop(0)
@@ -487,7 +487,7 @@ def fuse_operators(ast):
                 loop = ast.operators[0].compute[0]
                 
                 loop_merge(outer_loop, loop)
-                if ast.operators[0].op_type in core.ast.op_mapping.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[0].op_type in core.ast.arith_op.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[0].eval.dtype, val=0)
                     pre_arr = ast.operators[0].eval
                     ast.operators[0].decl.pop(0)
@@ -516,7 +516,7 @@ def fuse_operators(ast):
                 loop = ast.operators[1].compute[0]
                 
                 loop_merge(outer_loop, loop)
-                if ast.operators[1].op_type in core.ast.op_mapping.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[1].op_type in core.ast.arith_op.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[1].eval.dtype)
                     pre_arr = ast.operators[1].eval
                     ast.operators[1].decl.pop(0)
@@ -542,7 +542,7 @@ def fuse_operators(ast):
                 loop = ast.operators[0].compute[0]
                 
                 loop_merge(outer_loop, loop)
-                if ast.operators[0].op_type in core.ast.op_mapping.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[0].op_type in core.ast.arith_op.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[0].eval.dtype)
                     pre_arr = ast.operators[0].eval
                     ast.operators[0].decl.pop(0)
@@ -573,7 +573,7 @@ def fuse_operators(ast):
                 #     oloop.body.insert(i, iloop.body[i])
                 # iloop.body.clear()
                 loop_merge(outer_loop, loop)
-                if ast.operators[1].op_type in core.ast.op_mapping.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[1].op_type in core.ast.arith_op.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[1].eval.dtype)
                     pre_arr = ast.operators[1].eval
                     ast.operators[1].decl.pop(0)
@@ -603,7 +603,7 @@ def fuse_operators(ast):
                 
                     for i in range(len(iloop.body)):
                         oloop.body.insert(i, iloop.body[i])
-                    if ast.operators[0].op_type in core.ast.op_mapping.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                    if ast.operators[0].op_type in core.ast.arith_op.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                         a = Scalar(ast.operators[0].eval.dtype)
                         pre_arr = ast.operators[0].eval
                         ast.operators[0].decl.pop(0)
@@ -703,7 +703,7 @@ def fuse_operators(ast):
                     change_index(i, iter_o, iter_i)
                 for i in range(len(iloop.body)):
                     oloop.body.insert(i, iloop.body[i])
-                if ast.operators[1].op_type in core.ast.op_mapping.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[1].op_type in core.ast.arith_op.keys() or ast.operators[1].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[1].eval.dtype)
                     pre_arr = ast.operators[1].eval
                     ast.operators[1].decl.pop(0)
@@ -731,7 +731,7 @@ def fuse_operators(ast):
                 loop = ast.operators[0].compute[0]
 
                 loop_merge(outer_loop, loop)
-                if ast.operators[0].op_type in core.ast.op_mapping.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
+                if ast.operators[0].op_type in core.ast.arith_op.keys() or ast.operators[0].op_type in ["scal_mul_vec", "vec_mul_vec"]:
                     a = Scalar(ast.operators[0].eval.dtype)
                     pre_arr = ast.operators[0].eval
                     ast.operators[0].decl.pop(0)

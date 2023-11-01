@@ -71,7 +71,7 @@ def gen_ir(node):
         node.decl = [Decl(node.eval)]
 
     elif type(node) == TensorOp:
-        if node.op_type in op_mapping or node.op_type in cmp_op:
+        if node.op_type in arith_op or node.op_type in cmp_op:
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
             node.input_orders[0] = []
@@ -95,8 +95,8 @@ def gen_ir(node):
                         rhs = bind(rhs, pre_loop.iterate)
                         res = bind(res, pre_loop.iterate)
 
-                    if node.op_type in op_mapping:
-                        op = op_mapping[node.op_type]
+                    if node.op_type in arith_op:
+                        op = arith_op[node.op_type]
                     else:
                         op = node.op_type
                     assign = Assignment(res, Expr(lhs, rhs, op))
@@ -105,8 +105,8 @@ def gen_ir(node):
                 else:
                     node.eval = Scalar(node.dtype)
                     node.decl = [Decl(node.eval)]
-                    if node.op_type in op_mapping:
-                        op = op_mapping[node.op_type]
+                    if node.op_type in arith_op:
+                        op = arith_op[node.op_type]
                     else:
                         op = node.op_type
                     node.compute = [Assignment(node.eval, Expr(node.operators[0].eval, node.operators[1].eval, op))]
@@ -126,8 +126,8 @@ def gen_ir(node):
                     lhs = bind(lhs, pre_loop.iterate)
                     res = bind(res, pre_loop.iterate)
 
-                if node.op_type in op_mapping:
-                    op = op_mapping[node.op_type]
+                if node.op_type in arith_op:
+                    op = arith_op[node.op_type]
                 else:
                     op = node.op_type
                 assign = Assignment(res, Expr(lhs, rhs, op))
@@ -172,7 +172,6 @@ def gen_ir(node):
             for i in range(len(node.eval.size)):
                 node.output_order.append((i, l))
                 node.input_orders[0].append((i, l))
-                node.input_orders[1].append((i, l))
                 l = l.body[0]
 
         elif node.op_type == 'setval':

@@ -9,7 +9,7 @@ import cset
 def to_string(ir):
     match ir.__class__.__name__:
         case 'Expr':
-            if ir.op in op_mapping.values():
+            if ir.op in arith_op.values():
                 return f"({to_string(ir.left)}" + f" {ir.op} " + f"{to_string(ir.right)})"
             elif ir.op == 'bigger':
                 return f"({to_string(ir.left)} > {to_string(ir.right)} ? ({to_string(ir.left)}) : ({to_string(ir.right)}))"

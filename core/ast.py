@@ -4,7 +4,7 @@ import core
 MIN_INT = -2147483648
 MAX_INT = 2147483647
 
-op_mapping = {'add':'+', 'sub':'-', 'mul':'*', 'floordiv':'/', 'truediv':'/'}
+arith_op = {'add': '+', 'sub': '-', 'mul': '*', 'floordiv': '/', 'truediv': '/'}
 math_op = ['round', 'abs']
 cmp_op = ['bigger', 'smaller']
 func_op = ['index', 'apply', 'reduce', 'aggr', 'einsum', 'setval']
@@ -21,7 +21,7 @@ def is_1dint_tensor(v):
 
 
 def eval_const_expr(e):
-    if type(e) == TensorOp and (e.op_type in op_mapping):
+    if type(e) == TensorOp and (e.op_type in arith_op):
         lhs = eval_const_expr(e.operators[0])
         if lhs != None:
             rhs = eval_const_expr(e.operators[1])
@@ -63,7 +63,7 @@ def has_same_value(e1, e2):
     elif type(e1) == TensorOp:
         if e1.op_type != e2.op_type:
             return False
-        elif e1.op_type in op_mapping:
+        elif e1.op_type in arith_op:
             return has_same_value(e1.operators[0], e2.operators[0]) and has_same_value(e2.operators[1], e2.operators[1])
         else:
             if len(e1.operators) != len(e2.operators):
@@ -264,7 +264,7 @@ def einsum(exp: str, tensor1, tensor2):
     return TensorOp('einsum', tensor1, tensor2, exp)
 
 class TensorOp(Tensor):
-    Types = func_op + list(op_mapping.keys()) + math_op + cmp_op
+    Types = func_op + list(arith_op.keys()) + math_op + cmp_op
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -288,7 +288,7 @@ class TensorOp(Tensor):
                 if isinstance(opr, ASTNode):
                     opr.ref_count += 1
 
-        if op_type in op_mapping or op_type in cmp_op:
+        if op_type in arith_op or op_type in cmp_op:
 
             if type(self.operators[0]) == int:
                 self.operators[0] = Const(self.operators[0], 'int')

@@ -31,36 +31,38 @@ def rebind_iterate(ir, old, new):
         rebind_iterate(ir.start, old, new)
         rebind_iterate(ir.stop, old, new)
         rebind_iterate(ir.step, old, new)
+    elif type(ir) == Math:
+        rebind_iterate(ir.val, old, new)
 
-def get_indices(ir, idx):
-    if type(ir) in (Scalar, Ndarray):
-        return ir
-    elif type(ir) is Indexing:
-        idx.append(ir.idx)
-        return get_indices(ir.dobject, idx)
-    else:
-        return None
-
-def find_assignments(ir, target, res):
-    if type(ir) == Assignment:
-        idx = []
-        item = get_indices(ir.lhs, idx)
-        if item != None and item == target:
-            res.append((ir, idx[::-1]))
-    elif type(ir) == Loop:
-        for s in ir.body:
-            find_assignments(s, target, res)
-
-def find_loop(loop, itr):
-    if type(loop) == Loop:
-        if loop.iterate == itr:
-            return loop
-        else:
-            for s in loop.body:
-                r = find_loop(s, itr)
-                if r != None:
-                    return r
-    return None
+# def get_indices(ir, idx):
+#     if type(ir) in (Scalar, Ndarray):
+#         return ir
+#     elif type(ir) is Indexing:
+#         idx.append(ir.idx)
+#         return get_indices(ir.dobject, idx)
+#     else:
+#         return None
+#
+# def find_assignments(ir, target, res):
+#     if type(ir) == Assignment:
+#         idx = []
+#         item = get_indices(ir.lhs, idx)
+#         if item != None and item == target:
+#             res.append((ir, idx[::-1]))
+#     elif type(ir) == Loop:
+#         for s in ir.body:
+#             find_assignments(s, target, res)
+#
+# def find_loop(loop, itr):
+#     if type(loop) == Loop:
+#         if loop.iterate == itr:
+#             return loop
+#         else:
+#             for s in loop.body:
+#                 r = find_loop(s, itr)
+#                 if r != None:
+#                     return r
+#     return None
 
 def gen_point_loops(loop_nest, outer_loops, tile_size, new_indices, num_tiled_loops, i):
     if i < len(loop_nest):
@@ -80,7 +82,7 @@ def gen_point_loops(loop_nest, outer_loops, tile_size, new_indices, num_tiled_lo
 
 def output_reorder(node, dim_order, tile_size):
     assert isinstance(node, TensorOp)
-    assert node.op_type in op_mapping or  node.op_type in math_op or node.op_type in ('einsum', 'setval')
+    assert node.op_type in arith_op or node.op_type in math_op or node.op_type in ('einsum', 'setval')
     assert len(node.compute) == 1
     assert len(dim_order) == len(tile_size) and len(dim_order) > 0
     loop = node.compute[0]

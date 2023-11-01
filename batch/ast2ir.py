@@ -21,7 +21,7 @@ def gen_ir(node):
         node.base._gen_ir()
         node.eval = node.base.eval
     elif type(node) == BatchOp:
-        if node.op_type in core.ast.op_mapping:
+        if node.op_type in core.ast.arith_op:
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
             node.base._gen_ir()
