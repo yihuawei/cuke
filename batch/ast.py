@@ -7,15 +7,15 @@ class Batch(ASTNode):
         super().__init__()
         size = base._size()
 
-        if type(base) == TensorOp and base.ref_count >= 1:
+        if type(base) == TensorOp and len(base.ref_by) >= 1:
             self.base = copy.copy(base)
             self.base.eval = None
             self.base.decl.clear()
             self.base.compute.clear()
-            self.base.ref_count = 1
+            self.base.ref_by = [self]
         else:
             self.base = base
-            self.base.ref_count += 1
+            self.base.ref_by.append(self)
 
         
         if (len(size) == 2):
@@ -89,12 +89,12 @@ class BatchOp(Batch):
 
         self.operators = []
         for opr in operators:
-            if isinstance(opr, Batch) and type(opr.base) == TensorOp and opr.base.op_type == 'index' and opr.ref_count >= 1:
+            if isinstance(opr, Batch) and type(opr.base) == TensorOp and opr.base.op_type == 'index' and len(opr.ref_by) >= 1:
                 new_opr = copy.copy(opr)
-                new_opr.ref_count = 1
+                new_opr.ref_by = [self]
                 new_opr.eval = None
                 new_opr.base = copy.copy(opr.base)
-                new_opr.base.ref_count = 1
+                new_opr.base.ref_by = [self]
                 new_opr.base.eval = None
                 new_opr.base.decl.clear()
                 new_opr.base.compute.clear()
@@ -102,8 +102,8 @@ class BatchOp(Batch):
             else:
                 self.operators.append(opr)
                 if isinstance(opr, ASTNode):
-                    opr.ref_count += 1
-                    opr.base.ref_count += 1
+                    opr.ref_by.append(self)
+                    opr.base.ref_by.append(self)
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])
 

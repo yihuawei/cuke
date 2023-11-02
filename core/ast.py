@@ -1,11 +1,12 @@
 import copy
 import core
+import inspect
 
 MIN_INT = -2147483648
 MAX_INT = 2147483647
 
 arith_op = {'add': '+', 'sub': '-', 'mul': '*', 'floordiv': '/', 'truediv': '/'}
-math_op = ['round', 'abs']
+math_op = ['round', 'abs', 'nbits']
 cmp_op = ['bigger', 'smaller']
 func_op = ['index', 'apply', 'reduce', 'aggr', 'einsum', 'setval']
 
@@ -99,7 +100,7 @@ class ASTNode:
     def __init__(self):
         self.decl = []
         self.eval = None
-        self.ref_count = 0
+        self.ref_by = []
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
         self.valid = True
@@ -153,17 +154,26 @@ class Tensor(ASTNode):
 
     def apply(self, func, axis=0):
         if callable(func):
-            from core.ast2ir import gen_ir
             op = TensorOp('apply', self, func, axis)
             return op
         else:
             raise TypeError('must apply a callable function')
 
+    def scan(self, func, init, axis=0):
+        if callable(func) and callable(init):
+            assert len(inspect.signature(func).parameters) == len(inspect.signature(init).parameters) + 1
+            return TensorOp('scan', self, func, init, axis)
+        else:
+            raise TypeError('scan must use a callable function')
+
+    def prefix_sum(self, axis=0):
+        func = lambda x, yi: x + yi
+        init = lambda y0: y0.setval(0)
+        return self.scan(func, init, axis)
+
     def reduce(self, func, init, axis=0):
         if callable(func) and callable(init):
-            from core.ast2ir import  gen_ir
-            op = TensorOp('reduce', self, func, init, axis)
-            return op
+            return TensorOp('reduce', self, func, init, axis)
         else:
             raise TypeError('reduce must use a callable function')
 
@@ -182,12 +192,9 @@ class Tensor(ASTNode):
         init = lambda x: x.setval(MAX_INT)
         return self.reduce(func, init, axis)
 
-
     def aggr(self, func, init, indices, axis=0, size=None):
         if callable(func) and callable(init):
-            from core.ast2ir import gen_ir
             op = TensorOp('aggr', self, func, init, indices, axis, size)
-            gen_ir(op)
             return op
         else:
             raise TypeError('aggr must use a callable function')
@@ -235,6 +242,9 @@ class Tensor(ASTNode):
     def abs(self):
         return TensorOp('abs', self)
 
+    def nbits(self):
+        return TensorOp('nbits', self)
+
     def _gen_ir(self):
         return core.ast2ir.gen_ir(self)
 
@@ -276,9 +286,9 @@ class TensorOp(Tensor):
         self.operators = []
         for opr in operators:
             # an index can be referenced multiple times in the ast, we should create duplicate copies so that they can bind with different loop iterates
-            if type(opr) == TensorOp and opr.op_type == 'index' and opr.ref_count >= 1:
+            if type(opr) == TensorOp and opr.op_type == 'index' and len(opr.ref_by) >= 1:
                 new_opr = copy.copy(opr)
-                new_opr.ref_count = 1
+                new_opr.ref_by = [self]
                 new_opr.eval = None
                 new_opr.decl.clear()
                 new_opr.compute.clear()
@@ -286,7 +296,7 @@ class TensorOp(Tensor):
             else:
                 self.operators.append(opr)
                 if isinstance(opr, ASTNode):
-                    opr.ref_count += 1
+                    opr.ref_by.append(self)
 
         if op_type in arith_op or op_type in cmp_op:
 
@@ -402,6 +412,30 @@ class TensorOp(Tensor):
             self.operators.append(item2)
             self.operators.append(self.operators[1](item1, item2))
 
+        elif op_type == 'scan':
+            assert type(self.operators[3]) == int
+            axis = self.operators[3]
+            self.operators[3] = Const(axis, 'int')
+            ref_size = self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
+            fix_size = []
+            dtype = self.operators[0].dtype
+            func = self.operators[1]
+            init = self.operators[2]
+            y = []
+            if (len(ref_size) > 0):
+                item1 = Tensor(f'item_of_{self.operators[0].name}', ref_size,
+                               self.operators[0].dtype, [], False)
+                for i in range(len(inspect.signature(init).parameters)):
+                    y.append(Tensor(f'y{i}_of_{self.operators[0].name}', ref_size, self.operators[0].dtype, [], False))
+            else:
+                item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)
+                for i in range(len(inspect.signature(init).parameters)):
+                    y.append(Var(f'y{i}_of_{self.operators[0].name}', self.operators[0].dtype, False))
+
+            self.operators.append(item1)
+            self.operators.extend(y)
+            self.operators.append(self.operators[1](item1, *y))
+
         elif op_type == 'aggr':
             assert is_1dint_tensor(self.operators[3])
             assert type(self.operators[4]) == int
@@ -453,7 +487,7 @@ class TensorOp(Tensor):
         self.op_type = op_type
 
         # call the init function for reduce and aggr
-        if self.op_type in ('reduce', 'aggr'):
+        if self.op_type in ('reduce', 'aggr', 'scan'):
             self.operators[2] = self.operators[2](self)
 
         self.input_orders = [None for o in self.operators]
