@@ -1,6 +1,5 @@
 from core.ast import *
 from core.ir import *
-from opt.loop import *
 import helpers
 
 
@@ -181,8 +180,6 @@ def gen_ir(node):
             # node.operators[1] must be a Scalar, so no input_order is needed
 
             node.eval = node.operators[0].eval
-            node.decl = node.operators[0].decl[:]
-            node.operators[0].decl.clear()
             val = node.operators[1].eval
 
             if len(node.ref_size) > 0:
@@ -365,13 +362,11 @@ def gen_ir(node):
                 node.eval = Ndarray(node.dtype, size)
             else:
                 node.eval = Scalar(node.dtype)
-            node.decl.append(Decl(node.eval))
 
             node.operators[2]._gen_ir() # init
+            # the decl of node.eval should be added to the init
+            node.operators[2].decl.append(Decl(node.eval))
 
-            # node.compute.extend(node.operators[2].compute)
-            # node.decl.extend(node.operators[2].decl)
-            # node.operators[2].valid = False
 
             # TODO: iterating over the reduction dimension in the outer loop may not give best performance
             # TODO: it might be better to make it the innermost loop
@@ -420,6 +415,73 @@ def gen_ir(node):
 
             node.output_order = ret.output_order
 
+        elif node.op_type == 'scan':
+            node.operators[0]._gen_ir()
+            node.operators[2]._gen_ir()
+            axis = node.operators[2].eval.val
+
+            size = helpers.get_ir_of_size(node._size())
+            if len(size) > 0:
+                node.eval = Ndarray(node.dtype, size)
+            else:
+                node.eval = Scalar(node.dtype)
+
+            ninits = (len(node.operators) - 5) // 2
+
+            for init in node.operators[3:3+ninits]:
+                init._gen_ir() # init
+            node.operators[3].decl.append(Decl(node.eval))
+
+            outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
+
+            item = node.operators[4]
+            item.eval = node.operators[0].eval
+            for i in range(axis):
+                item.eval = Indexing(item.eval, Literal(-1, 'int'))
+            item.eval = Indexing(item.eval, outer_loop.iterate)
+            item.decl = []
+
+            ys = node.operators[5:5+ninits]
+            for i in range(len(ys)):
+                ys[i].eval = node.eval
+                ys[i].eval = Indexing(ys[i].eval, Expr(outer_loop.iterate, Literal(i, 'int'), '+'))
+                ys[i].decl = []
+
+            ret = node.operators[-1]
+            ret._gen_ir()
+
+            def action(node, res):
+                if node.valid == True:
+                    if type(node) == Var or type(node) == Tensor:
+                        res.extend(node.decl)
+                        node.valid = False
+                    elif type(node) == TensorOp:
+                        res.extend(node.decl)
+                        res.extend(node.compute)
+                        node.valid = False
+
+            t = helpers.Traversal(action)
+            ret_ir = t(ret)
+            ret_decl = []
+            ret_compute = []
+
+            for ir in ret_ir:
+                if type(ir) == Decl:
+                    ret_decl.append(ir)
+                else:
+                    ret_compute.append(ir)
+
+            outer_loop.body.extend(ret_compute)
+            node.decl.extend(ret_decl)
+            node.compute.append(outer_loop)
+
+            replace_output(node.compute, ret.eval, Indexing(node.eval, Expr(outer_loop.iterate, Literal(len(ys), 'int'), '+')))
+            node.decl = [d for d in node.decl if d.dobject != ret.eval]
+
+            # TODO: need testing
+            node.output_order = [(0, outer_loop)]
+            for i in range(len(ret.output_order)):
+                node.output_order.append((i+1, ret.output_order[i][1]))
 
         elif node.op_type == 'aggr':
             node.operators[0]._gen_ir() # input tensor
@@ -428,13 +490,8 @@ def gen_ir(node):
             axis = node.operators[4].eval.val
             size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(node.dtype, size)
-            node.decl.append(Decl(node.eval))
-            # this must be called after node.eval is constructed
             node.operators[2]._gen_ir() # init
-
-            # node.compute.extend(node.operators[2].compute)
-            # node.decl.extend(node.operators[2].decl)
-            # node.operators[2].valid = False
+            node.operators[2].append(Decl(node.eval))
 
             # compute
             outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])

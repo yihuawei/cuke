@@ -8,7 +8,8 @@ MAX_INT = 2147483647
 arith_op = {'add': '+', 'sub': '-', 'mul': '*', 'floordiv': '/', 'truediv': '/'}
 math_op = ['round', 'abs', 'nbits']
 cmp_op = ['bigger', 'smaller']
-func_op = ['index', 'apply', 'reduce', 'aggr', 'einsum', 'setval']
+func_op = ['index', 'apply', 'reduce', 'aggr', 'scan']
+other_op = ['setval', 'einsum']
 
 
 def is_int_var(v):
@@ -159,17 +160,17 @@ class Tensor(ASTNode):
         else:
             raise TypeError('must apply a callable function')
 
-    def scan(self, func, init, axis=0):
-        if callable(func) and callable(init):
-            assert len(inspect.signature(func).parameters) == len(inspect.signature(init).parameters) + 1
-            return TensorOp('scan', self, func, init, axis)
-        else:
-            raise TypeError('scan must use a callable function')
+    def scan(self, func, inits, axis=0):
+        assert callable(func)
+        assert len(inspect.signature(func).parameters) == len(inits) + 1
+        for fi in inits:
+            assert callable(fi)
+        return TensorOp('scan', self, func, axis, *inits)
 
     def prefix_sum(self, axis=0):
         func = lambda x, yi: x + yi
-        init = lambda y0: y0.setval(0)
-        return self.scan(func, init, axis)
+        inits = [lambda x: x.setval(0)]
+        return self.scan(func, inits, axis)
 
     def reduce(self, func, init, axis=0):
         if callable(func) and callable(init):
@@ -225,7 +226,7 @@ class Tensor(ASTNode):
     def size(self):
         s = self._size()  # s is a list of int, Var, or Const
         if len(s) > 1:
-            return Tensor(f'{self.name}_size', val=s, dtype='int')
+            return Tensor(f'{self.name}_size', val=s, dtype='int', is_arg=False)
         elif len(s) == 1:
             if type(s[0]) == int:
                 return Const(s, dtype='int')
@@ -274,7 +275,7 @@ def einsum(exp: str, tensor1, tensor2):
     return TensorOp('einsum', tensor1, tensor2, exp)
 
 class TensorOp(Tensor):
-    Types = func_op + list(arith_op.keys()) + math_op + cmp_op
+    Types = func_op + list(arith_op.keys()) + math_op + cmp_op + other_op
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
@@ -413,28 +414,28 @@ class TensorOp(Tensor):
             self.operators.append(self.operators[1](item1, item2))
 
         elif op_type == 'scan':
-            assert type(self.operators[3]) == int
-            axis = self.operators[3]
-            self.operators[3] = Const(axis, 'int')
-            ref_size = self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
+            assert type(self.operators[2]) == int
+            axis = self.operators[2]
+            self.operators[2] = Const(axis, 'int')
+            ref_size = [self.operators[0]._size()[axis]] + self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
             fix_size = []
             dtype = self.operators[0].dtype
             func = self.operators[1]
-            init = self.operators[2]
+            inits = self.operators[3:]
             y = []
-            if (len(ref_size) > 0):
-                item1 = Tensor(f'item_of_{self.operators[0].name}', ref_size,
+            if (len(ref_size) > 1):
+                item = Tensor(f'item_of_{self.operators[0].name}', ref_size[1:],
                                self.operators[0].dtype, [], False)
-                for i in range(len(inspect.signature(init).parameters)):
-                    y.append(Tensor(f'y{i}_of_{self.operators[0].name}', ref_size, self.operators[0].dtype, [], False))
+                for i in range(len(inits)):
+                    y.append(Tensor(f'y{i}_of_{self.operators[0].name}', ref_size[1:], self.operators[0].dtype, [], False))
             else:
-                item1 = Var(f'item1_of_{self.operators[0].name}', self.operators[0].dtype, False)
-                for i in range(len(inspect.signature(init).parameters)):
+                item = Var(f'item_of_{self.operators[0].name}', self.operators[0].dtype, False)
+                for i in range(len(inits)):
                     y.append(Var(f'y{i}_of_{self.operators[0].name}', self.operators[0].dtype, False))
 
-            self.operators.append(item1)
+            self.operators.append(item)
             self.operators.extend(y)
-            self.operators.append(self.operators[1](item1, *y))
+            self.operators.append(func(item, *y))
 
         elif op_type == 'aggr':
             assert is_1dint_tensor(self.operators[3])
@@ -487,7 +488,10 @@ class TensorOp(Tensor):
         self.op_type = op_type
 
         # call the init function for reduce and aggr
-        if self.op_type in ('reduce', 'aggr', 'scan'):
+        if self.op_type in ('reduce', 'aggr'):
             self.operators[2] = self.operators[2](self)
+
+        if self.op_type == 'scan':
+            self.operators[3:3+len(inits)] = [inits[i](self[i]) for i in range(len(inits))]
 
         self.input_orders = [None for o in self.operators]

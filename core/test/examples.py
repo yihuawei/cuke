@@ -3,6 +3,7 @@ import run
 from core.ast2ir import *
 import codegen
 import helpers
+from core.opt import fuse
 
 def test1():
     def func():
@@ -12,7 +13,7 @@ def test1():
         return A + B - C
 
     ast = func()
-    code = codegen.cpu.print_cpp(ast._gen_ir())
+    code = codegen.cpu.print_cpp(fuse.fuse(ast._gen_ir()))
     print(code)
 
     A = torch.rand(10, 10)
@@ -390,7 +391,9 @@ def compression():
     input = Tensor('input', (50, 32), dtype='float')
     res = (input * 1000).round()
     res = res.apply(lambda x:x[0:32]-x[-1:31], axis=0)
-    res = res.abs().max(axis=1)
+    res = res.abs().max(axis=1).nbits()
+    res = res.prefix_sum()
+
     code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)
 
@@ -813,12 +816,26 @@ def cmp_test():
     print(code)
 
 
+def scan_test1():
+    A = Tensor('a', (10, ))
+    res = A.prefix_sum()
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+def scan_test2():
+    A = Tensor('a', (10, 20))
+    res = A.prefix_sum()
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
 
 if __name__ == "__main__":
     # conv1d_v1()
     # conv1d_v2(3)
-    test1()
-    test2()
+    # test1()
+    # test2()
     # test3()
     # test4()
     # test6()
@@ -839,19 +856,20 @@ if __name__ == "__main__":
     # compression()
     # test_math1()
     # test_math2()
-    apply_test1()
-    apply_test2()
+    # apply_test1()
+    # apply_test2()
     # apply_test3()
     # apply_test4()
     reduce_test1()
     reduce_test2()
     # reduce_test3()
     # reduce_test4()
-    test_aggr1()
+    # test_aggr1()
     # spmv()
-    test_einsum1()
+    # test_einsum1()
     # apply_test2()
     # test_apply5()
     # test27()
-
-    cmp_test()
+    scan_test1()
+    scan_test2()
+    # cmp_test()

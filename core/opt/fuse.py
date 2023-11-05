@@ -2,7 +2,7 @@ from core.ast import *
 from core.ir import *
 import codegen
 import helpers
-from reorder import rebind_iterate
+from core.opt.reorder import rebind_iterate
 
 def get_obj(ir: (Indexing, Scalar)):
     obj = ir
@@ -74,7 +74,7 @@ def replace_index_with_scalar(ir, old, new):
 
 
 def fuse(node, fusion_type = ['basic']):
-    elementwise_op = list(arith_op.keys()) + cmp_op + math_op
+    elementwise_op = list(arith_op.keys()) + cmp_op + math_op + ['setval']
 
     if 'basic' in fusion_type:
         def action(node, res):
@@ -137,9 +137,11 @@ def fuse(node, fusion_type = ['basic']):
         t = helpers.Traversal(action)
         t(node)
 
+    return node
+
 
 def test1():
-    A = Tensor('a', (10, 20))
+    A = Tensor('a', (10, 20)).setval(1)
     B = Tensor('b', (10, 20))
     C = Tensor('c', (10, 20))
     D = Tensor('d', (10, 20))
@@ -147,8 +149,7 @@ def test1():
     t2 = (C - D).abs()
     res1 = t1 + t2
     ir1 = res1._gen_ir()
-    fuse(ir1)
-    code = codegen.cpu.print_cpp(ir1)
+    code = codegen.cpu.print_cpp(fuse(ir1))
     print(code)
 
 
@@ -161,8 +162,7 @@ def test2():
     t2 = (C - D).abs()
     res1 = t1 + t2
     ir1 = res1._gen_ir()
-    fuse(ir1)
-    code = codegen.cpu.print_cpp(ir1)
+    code = codegen.cpu.print_cpp(fuse(ir1))
     print(code)
 
 def test3():
@@ -183,14 +183,12 @@ def compression():
     res = (input * 1000).round()
     res = res.apply(lambda x:x[0:32]-x[-1:31], axis=0)
     res = res.abs().max(axis=1).nbits()
-    pos = res.prefix_sum()
-    ir = pos._gen_ir()
-    fuse(ir)
-    code = codegen.cpu.print_cpp(ir)
+    # res = res.prefix_sum()
+    code = codegen.cpu.print_cpp(fuse(res._gen_ir()))
     print(code)
 
 if __name__ == "__main__":
-    test1()
-    test2()
-    test3()
+    # test1()
+    # test2()
+    # test3()
     compression()

@@ -20,6 +20,7 @@ class Expr(IR):
         self.left = left
         self.right = right
         self.op = op
+        self.size = self.left.size
 
 
 
@@ -92,7 +93,7 @@ class Math(IR):
 class Indexing(DOject):
     def __init__(self, dobject, idx):
         assert dobject != None and type(dobject) in (Slice, Ndarray, Indexing)
-        assert idx != None and type(idx) in (Scalar, Literal, Indexing)
+        assert idx != None and type(idx) in (Scalar, Literal, Indexing, Expr)
         self.dobject = dobject
         self.idx = idx
 
