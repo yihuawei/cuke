@@ -8,8 +8,8 @@ MAX_INT = 2147483647
 arith_op = {'add': '+', 'sub': '-', 'mul': '*', 'floordiv': '/', 'truediv': '/'}
 math_op = ['round', 'abs', 'nbits']
 cmp_op = ['bigger', 'smaller']
-func_op = ['index', 'apply', 'reduce', 'aggr', 'scan']
-other_op = ['setval', 'einsum']
+func_op = ['apply', 'reduce', 'aggr', 'scan']
+other_op = ['setval', 'einsum', 'index']
 
 
 def is_int_var(v):
@@ -88,12 +88,29 @@ def is_same_size(s1, s2):
 
     return True
 
+def prefix_match_size(s1, s2):
+    for i in range(len(s2)):
+        if s1[i] != s2[i]:
+            if type(s1[i]) == type(s2[i]):
+                return has_same_value(s1[i], s2[i])
+            else:
+                return False
+    return True
+
 
 def bigger(x, y):
     return TensorOp('bigger', x, y)
 
 def smaller(x, y):
     return TensorOp('smaller', x, y)
+
+def apply(func, output_offset = None, *args):
+    assert callable(func)
+    nparam = len(inspect.signature(func).parameters)
+    assert len(args) >= nparam
+    return TensorOp('apply', func, output_offset, *args)
+
+
 
 
 class ASTNode:
@@ -105,8 +122,6 @@ class ASTNode:
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
         self.valid = True
-
-
 
 class Tensor(ASTNode):
     def __init__(self, name, size:list|tuple, dtype='float', fix_size=[], is_arg=True):
@@ -141,24 +156,23 @@ class Tensor(ASTNode):
     def __mul__(self, other):
         return TensorOp('mul', self, other)
 
+    def __truediv__(self, other):
+        return TensorOp('truediv', self, other)
+
     def __floordiv__(self, other):
         return TensorOp('floordiv', self, other)
-	
+
+
     def __matmul__(self, other):
         return TensorOp('einsum', self, other, 'ij,jk->ik')
 
     def __getitem__(self, idx):
-        if isinstance(idx, (int, slice, Tensor)):
-            return TensorOp('index', self, idx)
-        else:
-            raise TypeError('invalid index type')
+        assert isinstance(idx, (int, slice, Tensor))
+        return TensorOp('index', self, idx)
 
-    def apply(self, func, axis=0):
-        if callable(func):
-            op = TensorOp('apply', self, func, axis)
-            return op
-        else:
-            raise TypeError('must apply a callable function')
+    def apply(self, func, output_offset = None, axis=0):
+        assert callable(func)
+        return TensorOp('apply', func, output_offset, self, axis)
 
     def scan(self, func, inits, axis=0):
         assert callable(func)
@@ -283,7 +297,6 @@ class TensorOp(Tensor):
         self.output_order = []
 
          # TODO: infer result data type
-        dtype = operators[0].dtype
         self.operators = []
         for opr in operators:
             # an index can be referenced multiple times in the ast, we should create duplicate copies so that they can bind with different loop iterates
@@ -300,7 +313,7 @@ class TensorOp(Tensor):
                     opr.ref_by.append(self)
 
         if op_type in arith_op or op_type in cmp_op:
-
+            dtype = operators[0].dtype
             if type(self.operators[0]) == int:
                 self.operators[0] = Const(self.operators[0], 'int')
             elif type(operators[0]) == float:
@@ -309,14 +322,15 @@ class TensorOp(Tensor):
                 self.operators[1] = Const(self.operators[1], 'int')
             elif type(operators[1]) == float:
                 self.operators[1] = Const(self.operators[1], 'float')
-            assert is_same_size(self.operators[0]._size(), self.operators[1]._size()) or len(self.operators[0]._size()) == 0 or len(self.operators[1]._size()) == 0
             if len(self.operators[0]._size()) < len(self.operators[1]._size()):
                 self.operators[0], self.operators[1] = self.operators[1], self.operators[0]
+            assert prefix_match_size(self.operators[0]._size(), self.operators[1]._size())
 
             ref_size = self.operators[0].fix_size + self.operators[0].ref_size
             fix_size = []
 
         elif op_type == 'einsum':
+            dtype = operators[0].dtype
             exp = self.operators[2]
             inputs, output = exp.split('->')
             input1, input2 = inputs.split(',')
@@ -336,6 +350,7 @@ class TensorOp(Tensor):
                         raise IndexError('index not found!')
 
         elif op_type == 'index':
+            dtype = operators[0].dtype
             ref_size = self.operators[0].ref_size[1:]
             fix_size = self.operators[0].fix_size[:]
             if type(self.operators[1]) == int:
@@ -374,26 +389,43 @@ class TensorOp(Tensor):
                 raise TypeError('index must be int, Var of int, or 1d int Tensor')
 
         elif op_type == 'apply':
-            assert type(self.operators[2]) == int
-            axis = self.operators[2]
-            self.operators[2] = Const(axis, 'int')
+            func = self.operators[0]
+            nparams = len(inspect.signature(func).parameters)
+            for i in range(nparams):
+                if 2 + nparams + i < len(operators):
+                    axis = operators[2+nparams+i]
+                    self.operators[2+nparams+i] = Const(axis, 'int')
+                else:
+                    self.operators.append(Const(0, 'int'))
 
-            data_size = self.operators[0]._size()
-            item_size = data_size[:axis] + data_size[axis + 1:]
-            if (len(item_size) > 0):
-                item = Tensor(f'item_of_{self.operators[0].name}', item_size,
-                              self.operators[0].dtype, [], False)
-            else:
-                item = Var(f'item_of_{self.operators[0].name}', self.operators[0].dtype, False)
+            data = []
+            primary_axis_size = self.operators[1]._size()[self.operators[2+nparams].val]
+            for i in range(2, 2+nparams):
+                data_size = self.operators[i]._size()
+                axis = self.operators[nparams+i].val
+                # every input item should have the same size as the primary axis size
+                assert primary_axis_size.val == data_size[axis].val
+                item_size = data_size[:axis] + data_size[axis + 1:]
+                if (len(item_size) > 0):
+                    item = Tensor(f'item_of_{self.operators[i].name}', item_size,
+                                  self.operators[i].dtype, [], False)
+                else:
+                    item = Var(f'item_of_{self.operators[i].name}', self.operators[i].dtype, False)
+                data.append(item)
 
-            ret = self.operators[1](item)
+            ret = self.operators[0](*data)
             dtype = ret.dtype
-            ref_size = [self.operators[0]._size()[axis]] + ret._size()
+            output_offset = self.operators[1]
+            if output_offset == None:
+                ref_size = [primary_axis_size] + ret._size()
+            else:
+                ref_size = [output_offset[primary_axis_size]] + ret._size()[1:]
             fix_size = []
-            self.operators.append(item)
+            self.operators.extend(data)
             self.operators.append(ret)
 
         elif op_type == 'reduce':
+            dtype = operators[0].dtype
             assert type(self.operators[3]) == int
             axis = self.operators[3]
             self.operators[3] = Const(axis, 'int')
@@ -414,6 +446,7 @@ class TensorOp(Tensor):
             self.operators.append(self.operators[1](item1, item2))
 
         elif op_type == 'scan':
+            dtype = operators[0].dtype
             assert type(self.operators[2]) == int
             axis = self.operators[2]
             self.operators[2] = Const(axis, 'int')
@@ -438,6 +471,7 @@ class TensorOp(Tensor):
             self.operators.append(func(item, *y))
 
         elif op_type == 'aggr':
+            dtype = operators[0].dtype
             assert is_1dint_tensor(self.operators[3])
             assert type(self.operators[4]) == int
             axis = self.operators[4]
@@ -450,7 +484,6 @@ class TensorOp(Tensor):
                     self.operators[5] = Const(self.operators[5], 'int')
             ref_size = [self.operators[5]] + self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
             fix_size = []
-            dtype = self.operators[0].dtype
             if (len(ref_size) > 1):
                 item1 = Tensor(f'item1_of_{self.operators[0].name}', ref_size[1:],
                                self.operators[0].dtype, [], False)
@@ -464,6 +497,7 @@ class TensorOp(Tensor):
             self.operators.append(self.operators[1](item1, item2))
 
         elif op_type in math_op:
+            dtype = self.operators[0].dtype
             ref_size = self.operators[0].ref_size
             fix_size = []
             if op_type == 'round':
@@ -472,6 +506,7 @@ class TensorOp(Tensor):
                 dtype = self.operators[0].dtype
 
         elif op_type == 'setval':
+            dtype = self.operators[0].dtype
             ref_size = self.operators[0].ref_size
             fix_size = self.operators[0].fix_size
             assert is_scalar(self.operators[1])

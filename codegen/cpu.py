@@ -3,6 +3,8 @@ from cset.ast2ir import *
 import helpers
 import batch
 import cset
+import random
+import string
 
 
 
@@ -121,5 +123,5 @@ def print_cpp(ast):
 
     with open('codegen/cpp_template.cpp', 'r') as f:
         c_code = f.read()
-        c_code = c_code.replace('RTYPE', rtype).replace('FNAME', ast.name).replace('ARGS', args).replace('CODE', code)
+        c_code = c_code.replace('RTYPE', rtype).replace('FNAME', ast.name[:24]+ ''.join(random.choices(string.ascii_lowercase, k=8))).replace('ARGS', args).replace('CODE', code)
     return c_code

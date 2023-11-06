@@ -117,12 +117,16 @@ def gen_ir(node):
                 node.compute = [pre_loop]
                 lhs = bind(node.operators[0].eval, pre_loop.iterate)
                 rhs = node.operators[1].eval
+                rhs_level = 1
                 res = bind(node.eval, pre_loop.iterate)
                 for i in range(1, len(node.eval.size)):
                     loop = Loop(0, node.eval.size[i], 1, [])
                     pre_loop.body.append(loop)
                     pre_loop = loop
                     lhs = bind(lhs, pre_loop.iterate)
+                    if rhs_level < len(node.operators[1].ref_size):
+                        rhs = bind(rhs, pre_loop.iterate)
+                        rhs_level += 1
                     res = bind(res, pre_loop.iterate)
 
                 if node.op_type in arith_op:
@@ -217,16 +221,16 @@ def gen_ir(node):
             all_indices = ''.join(sorted(set(input1 + input2)))
             all_loops = []
             mapping = {}
-            for i in range(len(all_indices)):
-                pos1 = input1.find(all_indices[i])
-                pos2 = input2.find(all_indices[i])
+            for i in output:
+                pos1 = input1.find(i)
+                pos2 = input2.find(i)
                 if (pos1 >= 0 and pos2 < 0):
-                    mapping[all_indices[i]] = len(all_loops)
+                    mapping[i] = len(all_loops)
                     l = Loop(0, node.operators[0].eval.size[pos1], 1, [])
                     all_loops.append(l)
                     node.input_orders[0].append((len(node.input_orders[0]), l))
                 elif (pos1 < 0 and pos2 >= 0):
-                    mapping[all_indices[i]] = len(all_loops)
+                    mapping[i] = len(all_loops)
                     l = Loop(0, node.operators[1].eval.size[pos2], 1, [])
                     all_loops.append(l)
                     node.input_orders[1].append((len(node.input_orders[1]), l))
@@ -264,7 +268,10 @@ def gen_ir(node):
             for i in output:
                 res = bind(res, all_loops[mapping[i]].iterate)
 
-            body = Assignment(res, Expr(op1, op2, '*'), '+')
+            if reduce_begins == len(all_loops):
+                body = Assignment(res, Expr(op1, op2, '*'))
+            else:
+                body = Assignment(res, Expr(op1, op2, '*'), '+')
             init = Assignment(res, 0)
             if reduce_begins == 0:
                 node.compute.append(init)
@@ -296,20 +303,23 @@ def gen_ir(node):
 
         elif node.op_type == 'apply':
             #TODO: add input_orders for apply, reduce, and aggr
+            func = node.operators[0]
+            nparams = len(inspect.signature(func).parameters)
 
-            node.operators[0]._gen_ir() # input tensor
-            node.operators[2]._gen_ir() # axis
+            for i in range(2, 2+2*nparams):
+                node.operators[i]._gen_ir()
 
-            axis = node.operators[2].eval.val
+            primary_axis = node.operators[2+nparams].eval.val
 
-            outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
+            outer_loop = Loop(0, node.operators[2].eval.size[primary_axis], 1, [])
 
-            # item is an indexing to the input tensor in axis dimension
-            item = node.operators[3]
-            item.eval = node.operators[0].eval
-            for i in range(axis):
-                item.eval = Indexing(item.eval, Literal(-1, 'int'))
-            item.eval = Indexing(item.eval, outer_loop.iterate)
+            for i in range(nparams):
+                item = node.operators[2+2*nparams+i]
+                item.eval = node.operators[2+i].eval
+                axis = node.operators[2+nparams+i].eval.val
+                for i in range(axis):
+                    item.eval = Indexing(item.eval, Literal(-1, 'int'))
+                item.eval = Indexing(item.eval, outer_loop.iterate)
 
             ret = node.operators[-1]
             ret._gen_ir() # generate IR for applied func
@@ -491,7 +501,7 @@ def gen_ir(node):
             size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(node.dtype, size)
             node.operators[2]._gen_ir() # init
-            node.operators[2].append(Decl(node.eval))
+            node.operators[2].decl.append(Decl(node.eval))
 
             # compute
             outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])

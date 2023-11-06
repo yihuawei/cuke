@@ -508,7 +508,26 @@ def apply_test4():
     code = codegen.cpu.print_cpp(ir)
     print(code)
 
+def apply_test5():
+    A = Tensor('A', (10, 20))
+    B = Tensor('B', (10, 20))
+    res = apply(lambda a, b: a + b, A, B)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
 
+def apply_test6():
+    A = Tensor('A', (10, 20))
+    B = Tensor('B', (10, 20))
+    res = apply(lambda a, b: a + b, A, B, 1, 1)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+def apply_test7():
+    A = Tensor('A', (10, 20))
+    B = Tensor('B', (10, ))
+    res = apply(lambda a, b: a + b, A, B)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
 
 def test_aggr1():
     A = Tensor('A', (10, 20))
@@ -527,7 +546,7 @@ def spmv():
     val = Tensor('val', (m, ), 'float')
 
     c = Var('c', 'int')
-    y = Tensor('y', (c, ), 'float')
+    y = Tensor('y', (c, 100), 'float')
 
     res = y[colidx] * val
     res = res.aggr_sum(rowidx, size=r)
@@ -565,7 +584,7 @@ def test_einsum1():
     ir = gen_ir(C)
     code = codegen.cpu.print_cpp(ir)
     print(helpers.get_input_nodes(ir))
-    # print(code)
+    print(code)
 
 
     d1 = 100
@@ -584,7 +603,7 @@ def test_einsum2():
     d4 = Var('d4')
     A = Tensor('a', (d1, d2, d3))
     B = Tensor('b', (d1, d3, d4))
-    C = einsum('bij,bjk->bik', A, B)
+    C = einsum('bij,bjk->ik', A, B)
     ir = gen_ir(C)
     code = codegen.cpu.print_cpp(ir)
     print(helpers.get_input_nodes(ir))
@@ -598,8 +617,9 @@ def test_einsum2():
 
     A = torch.rand(d1, d2, d3)
     B = torch.rand(d1, d3, d4)
-    res = run.cpu.compile_and_run(code, d1, d2, d4, d3, A, B)
-    res1 = torch.einsum('bij,bjk->bik', A, B)
+    res = run.cpu.compile_and_run(code, d2, d4, d1, d3, A, B)
+    # TODO: cuke computes differently than pytorch when 'ik' changes to 'ki', it seems pytorch does not differentiate the two
+    res1 = torch.einsum('bij,bjk->ik', A, B)
     print(torch.norm(res1 - res))
 
 
@@ -860,16 +880,20 @@ if __name__ == "__main__":
     # apply_test2()
     # apply_test3()
     # apply_test4()
-    reduce_test1()
-    reduce_test2()
+    apply_test5()
+    apply_test6()
+    apply_test7()
+    # reduce_test1()
+    # reduce_test2()
     # reduce_test3()
     # reduce_test4()
     # test_aggr1()
     # spmv()
     # test_einsum1()
+    # test_einsum2()
     # apply_test2()
     # test_apply5()
     # test27()
-    scan_test1()
-    scan_test2()
+    # scan_test1()
+    # scan_test2()
     # cmp_test()
