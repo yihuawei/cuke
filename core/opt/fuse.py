@@ -183,8 +183,9 @@ def compression():
     quant_res = (input * 1000).round()
     lorenzo_res = quant_res.apply(lambda x:x[0:32]-x[-1:31], axis=0)
     encode_nbits = lorenzo_res.abs().max(axis=1).nbits()
-    compressed_res = apply(lambda x, y: x // y, lorenzo_res, encode_nbits)
-    code = codegen.cpu.print_cpp(fuse(compressed_res._gen_ir()))
+    ofs = encode_nbits.prefix_sum()
+    compressed_res = apply(lambda x, y: x // y,lorenzo_res, encode_nbits, out_ofs=ofs)
+    code = codegen.cpu.print_cpp(compressed_res._gen_ir())
     print(code)
 
 if __name__ == "__main__":

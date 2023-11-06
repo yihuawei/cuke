@@ -522,10 +522,20 @@ def apply_test6():
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
+
+
 def apply_test7():
     A = Tensor('A', (10, 20))
     B = Tensor('B', (10, ))
     res = apply(lambda a, b: a + b, A, B)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+
+def apply_test8():
+    A = Tensor('A', (10, 20))
+    ofs = A.apply(lambda a: a.size()).prefix_sum()
+    res = apply(lambda a: a + 1, A, out_ofs=ofs)
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
@@ -880,9 +890,10 @@ if __name__ == "__main__":
     # apply_test2()
     # apply_test3()
     # apply_test4()
-    apply_test5()
-    apply_test6()
-    apply_test7()
+    # apply_test5()
+    # apply_test6()
+    # apply_test7()
+    apply_test8()
     # reduce_test1()
     # reduce_test2()
     # reduce_test3()

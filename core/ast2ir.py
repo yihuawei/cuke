@@ -345,21 +345,32 @@ def gen_ir(node):
                 else:
                     ret_compute.append(ir)
 
-            outer_loop.body.extend(ret_compute)
+            if len(ret_compute) == 0:
+                ret_compute.append(Assignment(ret.eval, ret.eval))
+
+            out_ofs = node.operators[1]
+            if out_ofs != None:
+                out_ofs._gen_ir()
+                real_loop = Loop(Indexing(out_ofs.eval, outer_loop.iterate), Indexing(out_ofs.eval, Expr(outer_loop.iterate, 1, '+')), 1, [])
+                outer_loop.body = [real_loop]
+            else:
+                real_loop = outer_loop
+            real_loop.body.extend(ret_compute)
             size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
             node.decl.extend(ret_decl)
             node.compute = [outer_loop]
 
-            res = bind(node.eval, outer_loop.iterate)
+            res = bind(node.eval, real_loop.iterate)
             replace_output(node.compute, ret.eval, res)
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
             # TODO: need test for this
             node.output_order = [(0, outer_loop)]
-            for i in range(len(ret.output_order)):
-                node.output_order.append((i+1, ret.output_order[i][1]))
+            if hasattr(ret, 'output_order'):
+                for i in range(len(ret.output_order)):
+                    node.output_order.append((i+1, ret.output_order[i][1]))
 
 
         elif node.op_type == 'reduce':

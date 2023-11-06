@@ -104,11 +104,14 @@ def bigger(x, y):
 def smaller(x, y):
     return TensorOp('smaller', x, y)
 
-def apply(func, output_offset = None, *args):
+# By default, the output of func should have the same size for any input, but they can have different sizes in the first dim if out_ofss is provided
+def apply(func, *args, **kwargs):
+    defaultKwargs = {'out_ofs': None}
+    kwargs = defaultKwargs | kwargs
     assert callable(func)
     nparam = len(inspect.signature(func).parameters)
     assert len(args) >= nparam
-    return TensorOp('apply', func, output_offset, *args)
+    return TensorOp('apply', func, kwargs['out_ofs'], *args)
 
 
 
@@ -170,9 +173,9 @@ class Tensor(ASTNode):
         assert isinstance(idx, (int, slice, Tensor))
         return TensorOp('index', self, idx)
 
-    def apply(self, func, output_offset = None, axis=0):
+    def apply(self, func, axis=0, out_ofs=None):
         assert callable(func)
-        return TensorOp('apply', func, output_offset, self, axis)
+        return TensorOp('apply', func, out_ofs, self, axis)
 
     def scan(self, func, inits, axis=0):
         assert callable(func)
@@ -240,7 +243,7 @@ class Tensor(ASTNode):
     def size(self):
         s = self._size()  # s is a list of int, Var, or Const
         if len(s) > 1:
-            return Tensor(f'{self.name}_size', val=s, dtype='int', is_arg=False)
+            return Tensor(f'{self.name}_size', size=(len(s),), dtype='int', is_arg=False)
         elif len(s) == 1:
             if type(s[0]) == int:
                 return Const(s, dtype='int')
@@ -399,12 +402,12 @@ class TensorOp(Tensor):
                     self.operators.append(Const(0, 'int'))
 
             data = []
-            primary_axis_size = self.operators[1]._size()[self.operators[2+nparams].val]
+            first_axis_size = self.operators[2]._size()[self.operators[2+nparams].val]
             for i in range(2, 2+nparams):
                 data_size = self.operators[i]._size()
                 axis = self.operators[nparams+i].val
                 # every input item should have the same size as the primary axis size
-                assert primary_axis_size.val == data_size[axis].val
+                assert first_axis_size.val == data_size[axis].val
                 item_size = data_size[:axis] + data_size[axis + 1:]
                 if (len(item_size) > 0):
                     item = Tensor(f'item_of_{self.operators[i].name}', item_size,
@@ -415,11 +418,11 @@ class TensorOp(Tensor):
 
             ret = self.operators[0](*data)
             dtype = ret.dtype
-            output_offset = self.operators[1]
-            if output_offset == None:
-                ref_size = [primary_axis_size] + ret._size()
+            out_ofs = self.operators[1]
+            if out_ofs == None:
+                ref_size = [first_axis_size] + ret._size()
             else:
-                ref_size = [output_offset[primary_axis_size]] + ret._size()[1:]
+                ref_size = [out_ofs[first_axis_size]] + ret._size()[1:]
             fix_size = []
             self.operators.extend(data)
             self.operators.append(ret)
@@ -446,11 +449,10 @@ class TensorOp(Tensor):
             self.operators.append(self.operators[1](item1, item2))
 
         elif op_type == 'scan':
-            dtype = operators[0].dtype
             assert type(self.operators[2]) == int
             axis = self.operators[2]
             self.operators[2] = Const(axis, 'int')
-            ref_size = [self.operators[0]._size()[axis]] + self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
+            ref_size = [self.operators[0]._size()[axis] + 1] + self.operators[0]._size()[:axis] + self.operators[0]._size()[axis+1:]
             fix_size = []
             dtype = self.operators[0].dtype
             func = self.operators[1]
