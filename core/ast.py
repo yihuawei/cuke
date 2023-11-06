@@ -407,7 +407,7 @@ class TensorOp(Tensor):
                 data_size = self.operators[i]._size()
                 axis = self.operators[nparams+i].val
                 # every input item should have the same size as the primary axis size
-                assert first_axis_size.val == data_size[axis].val
+                has_same_value(first_axis_size, data_size[axis])
                 item_size = data_size[:axis] + data_size[axis + 1:]
                 if (len(item_size) > 0):
                     item = Tensor(f'item_of_{self.operators[i].name}', item_size,
