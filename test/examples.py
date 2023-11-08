@@ -1,4 +1,4 @@
-from core.ast2ir import *
+from core.asg2ir import *
 import run
 import helpers
 import codegen

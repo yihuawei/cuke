@@ -120,6 +120,9 @@ class ASTNode:
     nuniq = 0
     def __init__(self):
         self.decl = []
+        self.compute = []
+        self.output_order = []
+        self.input_orders = []
         self.eval = None
         self.ref_by = []
         self.id = ASTNode.nuniq
@@ -174,6 +177,7 @@ class Tensor(ASTNode):
         return TensorOp('index', self, idx)
 
     def apply(self, func, axis=0, out_ofs=None):
+        # TODO: not sure if apply needs out_ofs
         assert callable(func)
         return TensorOp('apply', func, out_ofs, self, axis)
 
@@ -264,7 +268,7 @@ class Tensor(ASTNode):
         return TensorOp('nbits', self)
 
     def _gen_ir(self):
-        return core.ast2ir.gen_ir(self)
+        return core.asg2ir.gen_ir(self)
 
 
 class Var(Tensor):
@@ -296,8 +300,6 @@ class TensorOp(Tensor):
 
     def __init__(self, op_type, *operators):
         assert op_type in TensorOp.Types
-        self.compute = []
-        self.output_order = []
 
          # TODO: infer result data type
         self.operators = []
@@ -312,7 +314,7 @@ class TensorOp(Tensor):
                 self.operators.append(new_opr)
             else:
                 self.operators.append(opr)
-                if isinstance(opr, ASTNode):
+                if isinstance(opr, ASTNode) and op_type != 'setval': # setval does not reference the data
                     opr.ref_by.append(self)
 
         if op_type in arith_op or op_type in cmp_op:

@@ -1,3 +1,3 @@
-import core.ast
+import core.asg
 import core.ir
-import core.ast2ir
+import core.asg2ir

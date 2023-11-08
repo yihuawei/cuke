@@ -1,6 +1,6 @@
 from cset.ast import *
 from cset.ir import *
-from core.ast2ir import *
+from core.asg2ir import *
 import helpers
 import codegen
 

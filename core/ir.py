@@ -3,6 +3,13 @@ class IR:
         # astnode tracks the location of this IR in the AST
         self.astnode = None
 
+
+class Code(IR):
+    def __init__(self, code, keywords: dict):
+        self.code = code
+        self.keywords = keywords
+
+
 class DOject(IR):
     nobjects = 0
 

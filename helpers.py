@@ -1,4 +1,5 @@
-from core.ast import *
+import compression.asg
+from core.asg import *
 from core.ir import *
 from cset.ast2ir import *
 
@@ -52,6 +53,14 @@ class Traversal:
             self._post_traverse(node.storage, visited, res)
             for n in node.nelem:
                 self._post_traverse(n, visited, res)
+            for c in node.operators:
+                self._post_traverse(c, visited, res)
+            self.action(node, res)
+        elif type(node) == compression.asg.Encoder:
+            for s in node.fix_size:
+                self._post_traverse(s, visited, res)
+            for s in node.ref_size:
+                self._post_traverse(s, visited, res)
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)

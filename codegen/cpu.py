@@ -1,4 +1,5 @@
-from core.ast2ir import *
+import compression.asg
+from core.asg2ir import *
 from cset.ast2ir import *
 import helpers
 import batch
@@ -74,6 +75,11 @@ def to_string(ir):
                 return code
         case 'Math':
             return f"{ir.type}({to_string(ir.val)})"
+        case 'Code':
+            code = ir.code
+            for kw in ir.keywords:
+                code = code.replace(kw, to_string(ir.keywords[kw]))
+            return code + '\n'
         case _:
             return str(ir)
 
@@ -92,6 +98,9 @@ def gen_cpp(ast, ir):
             elif type(node) == cset.ast.Set:
                 res.extend(node.decl)
             elif type(node) == cset.ast.SetOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+            elif type(node) == compression.asg.Encoder:
                 res.extend(node.decl)
                 res.extend(node.compute)
 

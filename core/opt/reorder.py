@@ -1,6 +1,6 @@
 import codegen.cpu
 from core.ir import *
-from core.ast import *
+from core.asg import *
 
 
 def rebind_iterate(ir, old, new):

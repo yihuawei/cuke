@@ -1,4 +1,4 @@
-from core.ast import *
+from core.asg import *
 import cset
 from cset.ast2ir import *
 

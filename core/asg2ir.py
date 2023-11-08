@@ -1,6 +1,7 @@
-from core.ast import *
+from core.asg import *
 from core.ir import *
 import helpers
+from core.opt.reorder import rebind_iterate
 
 
 
@@ -43,6 +44,9 @@ def replace_output(ir, old, new):
             ir.dobject = new
         else:
             replace_output(ir.dobject, old, new)
+
+def has_same_iteration_space(l1, l2):
+    return has_same_value(l1.start, l2.start) and has_same_value(l1.end, l2.end) and has_same_value(l1.step, l2.step)
 
 def gen_ir(node):
     assert isinstance(node, ASTNode)
@@ -180,8 +184,7 @@ def gen_ir(node):
         elif node.op_type == 'setval':
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            node.input_orders[0] = []
-            # node.operators[1] must be a Scalar, so no input_order is needed
+            # since setval resets all values in a Tensor, it does not have input orders
 
             node.eval = node.operators[0].eval
             val = node.operators[1].eval
@@ -205,7 +208,6 @@ def gen_ir(node):
             l = node.compute[0]
             for i in range(len(node.eval.size)):
                 node.output_order.append((i, l))
-                node.input_orders[0].append((i, l))
                 l = l.body[0]
 
 
@@ -321,15 +323,13 @@ def gen_ir(node):
                     item.eval = Indexing(item.eval, Literal(-1, 'int'))
                 item.eval = Indexing(item.eval, outer_loop.iterate)
 
+            # TODO: out_ofs should be passed to ret if nonempty
             ret = node.operators[-1]
             ret._gen_ir() # generate IR for applied func
 
             def action(node, res):
                 if node.valid == True:
-                    if type(node) == Var or type(node) == Tensor:
-                        res.extend(node.decl)
-                        node.valid = False
-                    elif type(node) == TensorOp:
+                    if isinstance(node, Tensor):
                         res.extend(node.decl)
                         res.extend(node.compute)
                         node.valid = False
@@ -348,22 +348,20 @@ def gen_ir(node):
             if len(ret_compute) == 0:
                 ret_compute.append(Assignment(ret.eval, ret.eval))
 
-            out_ofs = node.operators[1]
-            if out_ofs != None:
-                out_ofs._gen_ir()
-                real_loop = Loop(Indexing(out_ofs.eval, outer_loop.iterate), Indexing(out_ofs.eval, Expr(outer_loop.iterate, 1, '+')), 1, [])
-                outer_loop.body = [real_loop]
-            else:
-                real_loop = outer_loop
-            real_loop.body.extend(ret_compute)
+            outer_loop.body.extend(ret_compute)
             size = helpers.get_ir_of_size(node._size())
+            print(size)
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
             node.decl.extend(ret_decl)
             node.compute = [outer_loop]
 
-            res = bind(node.eval, real_loop.iterate)
+            out_ofs = node.operators[1]
+            res = bind(node.eval, outer_loop.iterate)
             replace_output(node.compute, ret.eval, res)
+            if out_ofs != None:
+                assert type(ret.compute[-1]) == Loop
+                rebind_iterate(ret.compute[-1].body, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
             # TODO: need test for this
@@ -389,8 +387,6 @@ def gen_ir(node):
             node.operators[2].decl.append(Decl(node.eval))
 
 
-            # TODO: iterating over the reduction dimension in the outer loop may not give best performance
-            # TODO: it might be better to make it the innermost loop
             outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
 
             item1 = node.operators[4]
@@ -405,6 +401,21 @@ def gen_ir(node):
 
             ret = node.operators[-1]
             ret._gen_ir()
+
+            compute = ret.output_order[-1][1].body if len(ret.output_order) > 0 else ret.compute
+            outer_loop.body = compute[:]
+            compute.clear()
+
+            # merge init into node.compute
+            init = node.operators[2].output_order[-1][1].body if len(node.operators[2].output_order) > 0 else node.operators[2].compute
+            assert len(node.operators[2].output_order) == len(ret.output_order)
+            for i in range(len(node.operators[2].output_order)):
+                assert has_same_iteration_space(node.operators[2].output_order[i][1], ret.output_order[i][1])
+                rebind_iterate(init, node.operators[2].output_order[i][1].iterate, ret.output_order[i][1].iterate)
+                node.output_order.append((i, ret.output_order[i][1]))
+            compute.extend(init)
+            node.operators[2].valid = False
+            compute.append(outer_loop)
 
             def action(node, res):
                 if node.valid == True:
@@ -427,14 +438,12 @@ def gen_ir(node):
                 else:
                     ret_compute.append(ir)
 
-            outer_loop.body.extend(ret_compute)
             node.decl.extend(ret_decl)
-            node.compute.append(outer_loop)
+            node.compute.extend(ret_compute)
 
             replace_output(node.compute, ret.eval, node.eval)
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
-            node.output_order = ret.output_order
 
         elif node.op_type == 'scan':
             node.operators[0]._gen_ir()
