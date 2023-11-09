@@ -13,6 +13,21 @@ def PrintCCode(ir):
 	print(code)
 
 
+
+# Loop 0 before interchange:
+# int L;
+# int M;
+# int N;
+# torch::Tensor obj_A = torch::empty({N,M,L}, at::kInt);
+# auto A = obj_A.accessor<int, 3>();
+# for (int _l13 = 0; _l13 < N; _l13 += 1) {
+# for (int _l14 = 0; _l14 < M; _l14 += 1) {
+# for (int _l15 = 0; _l15 < L; _l15 += 1) {
+# A[_l13 + 1][_l14][_l15] = B[_l13 + 1][_l14][_l15 - 1] + 2;
+# B[_l13 + 1][_l14 + 2][_l15 - 1] = A[_l13][_l14][_l15 + 1] + B[_l13][_l14 + 2][_l15];
+# } 
+# } 
+# } 
 def Loop0():
     ir = []
 
