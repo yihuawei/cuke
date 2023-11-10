@@ -16,6 +16,14 @@ def compression():
     code = codegen.cpu.print_cpp(fuse(res._gen_ir()))
     print(code)
 
+def prefix_sum():
+    data = Tensor('data', (10, 20), dtype='float')
+    res = data.prefix_sum()
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+
 
 if __name__ == "__main__":
-    compression()
+    # compression()
+    prefix_sum()

@@ -404,12 +404,12 @@ class TensorOp(Tensor):
                     self.operators.append(Const(0, 'int'))
 
             data = []
-            first_axis_size = self.operators[2]._size()[self.operators[2+nparams].val]
+            axis_size = self.operators[2]._size()[self.operators[2+nparams].val]
             for i in range(2, 2+nparams):
                 data_size = self.operators[i]._size()
                 axis = self.operators[nparams+i].val
                 # every input item should have the same size as the primary axis size
-                has_same_value(first_axis_size, data_size[axis])
+                has_same_value(axis_size, data_size[axis])
                 item_size = data_size[:axis] + data_size[axis + 1:]
                 if (len(item_size) > 0):
                     item = Tensor(f'item_of_{self.operators[i].name}', item_size,
@@ -422,9 +422,9 @@ class TensorOp(Tensor):
             dtype = ret.dtype
             out_ofs = self.operators[1]
             if out_ofs == None:
-                ref_size = [first_axis_size] + ret._size()
+                ref_size = [axis_size] + ret._size()
             else:
-                ref_size = [out_ofs[first_axis_size]] + ret._size()[1:]
+                ref_size = [out_ofs[axis_size]] + ret._size()[1:]
             fix_size = []
             self.operators.extend(data)
             self.operators.append(ret)
