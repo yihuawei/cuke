@@ -308,11 +308,13 @@ def gen_ir(node):
             func = node.operators[0]
             nparams = len(inspect.signature(func).parameters)
 
+            # generate IR for the input items of func
             for i in range(2, 2+2*nparams):
                 node.operators[i]._gen_ir()
 
             primary_axis = node.operators[2+nparams].eval.val
 
+            # this is the loop that iterates over the axis of the primary (first) tensor input
             outer_loop = Loop(0, node.operators[2].eval.size[primary_axis], 1, [])
 
             for i in range(nparams):
@@ -323,9 +325,9 @@ def gen_ir(node):
                     item.eval = Indexing(item.eval, Literal(-1, 'int'))
                 item.eval = Indexing(item.eval, outer_loop.iterate)
 
-            # TODO: out_ofs should be passed to ret if nonempty
+            # since input items of func has been generated and indexed, we can generate the IR of the func
             ret = node.operators[-1]
-            ret._gen_ir() # generate IR for applied func
+            ret._gen_ir()
 
             def action(node, res):
                 if node.valid == True:
@@ -345,12 +347,13 @@ def gen_ir(node):
                 else:
                     ret_compute.append(ir)
 
+            # if there is no compute in the func, we simply assign the result to itself, so that later the lhs of the assignment will be changed to the output array
             if len(ret_compute) == 0:
                 ret_compute.append(Assignment(ret.eval, ret.eval))
 
+            # the compute of func are added in the outer_loop
             outer_loop.body.extend(ret_compute)
             size = helpers.get_ir_of_size(node._size())
-            print(size)
             node.eval = Ndarray(ret.eval.dtype, size)
             node.decl.append(Decl(node.eval))
             node.decl.extend(ret_decl)
@@ -359,9 +362,13 @@ def gen_ir(node):
             out_ofs = node.operators[1]
             res = bind(node.eval, outer_loop.iterate)
             replace_output(node.compute, ret.eval, res)
+            # if there is an offset for output storage
             if out_ofs != None:
+                # the last statement in the func IR is always a Loop that writes the result to ret.eval (which has been replaced by res)
                 assert type(ret.compute[-1]) == Loop
+                # But the index to the node.eval in res is incorrect, we need to change it according to the offset
                 rebind_iterate(ret.compute[-1].body, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
+            # ret.eval is removed from the decl
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
             # TODO: need test for this
