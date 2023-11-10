@@ -52,9 +52,15 @@ def to_string(ir):
         case 'Indexing':
             if type(ir.dobject) == Slice:
                 if ir.dobject.step == 1 or (type(ir.dobject.step) == Literal and ir.dobject.step.val == 1):
-                    return f'(({to_string(ir.dobject.start)})+({to_string(ir.idx)}))'
+                    if ir.dobject.start == 0 or (type(ir.dobject.start) == Literal and ir.dobject.start.val == 0):
+                        return f'({to_string(ir.idx)})'
+                    else:
+                        return f'(({to_string(ir.dobject.start)})+({to_string(ir.idx)}))'
                 else:
-                    return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
+                    if ir.dobject.start == 0 or (type(ir.dobject.start) == Literal and ir.dobject.start.val == 0):
+                        return f'(({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
+                    else:
+                        return f'(({to_string(ir.dobject.start)})+({to_string(ir.dobject.step)})*({to_string(ir.idx)}))'
             else:
                 return f'{to_string(ir.dobject)}[{to_string(ir.idx)}]'
         case 'Search':

@@ -9,7 +9,7 @@ arith_op = {'add': '+', 'sub': '-', 'mul': '*', 'floordiv': '/', 'truediv': '/'}
 math_op = ['round', 'abs', 'nbits']
 cmp_op = ['bigger', 'smaller']
 func_op = ['apply', 'reduce', 'aggr', 'scan']
-other_op = ['setval', 'einsum', 'index']
+other_op = ['setval', 'einsum', 'index', 'out_redirect']
 
 
 def is_int_var(v):
@@ -84,6 +84,12 @@ def is_same_size(s1, s2):
             if type(s1[i]) == type(s2[i]):
                 return has_same_value(s1[i], s2[i])
             else:
+                v1 = eval_const_expr(s1[i])
+                if v1 != None:
+                    v2 = eval_const_expr(s2[i])
+                    if v2 != None:
+                        if v1 == v2:
+                            return True
                 return False
 
     return True
@@ -513,11 +519,16 @@ class TensorOp(Tensor):
             dtype = self.operators[0].dtype
             ref_size = self.operators[0].ref_size
             fix_size = self.operators[0].fix_size
-            assert is_scalar(self.operators[1])
-            if type(self.operators[1]) == int:
-                self.operators[1] = Const(self.operators[1], 'int')
-            elif type(self.operators[1]) == float:
-                self.operators[1] = Const(self.operators[1], 'float')
+
+            if (is_scalar(self.operators[1])):
+                if type(self.operators[1]) == int:
+                    self.operators[1] = Const(self.operators[1], 'int')
+                elif type(self.operators[1]) == float:
+                    self.operators[1] = Const(self.operators[1], 'float')
+
+            else:
+                assert is_same_size(self.operators[0].ref_size, self.operators[1].ref_size)
+                assert self.operators[0].dtype == self.operators[1].dtype
 
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])

@@ -182,33 +182,45 @@ def gen_ir(node):
                 l = l.body[0]
 
         elif node.op_type == 'setval':
+            if type(node.operators[0]) == Tensor:
+                node.operators[0].is_arg = False
+
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            # since setval resets all values in a Tensor, it does not have input orders
+
+        # since setval resets all values in a Tensor, it does not have input orders
 
             node.eval = node.operators[0].eval
-            val = node.operators[1].eval
 
-            if len(node.ref_size) > 0:
-                size = helpers.get_ir_of_size(node.ref_size)
-                pre_loop = Loop(0, size[0], 1, [])
-                node.compute = [pre_loop]
-                res = bind(node.eval, pre_loop.iterate)
-                for i in range(1, len(size)):
-                    loop = Loop(0, size[i], 1, [])
-                    pre_loop.body.append(loop)
-                    pre_loop = loop
-                    res = bind(res, pre_loop.iterate)
+            if is_scalar(node.operators[1]):
+                val = node.operators[1].eval
 
-                assign = Assignment(res, val)
-                pre_loop.body.append(assign)
+                if len(node.ref_size) > 0:
+                    size = helpers.get_ir_of_size(node.ref_size)
+                    pre_loop = Loop(0, size[0], 1, [])
+                    node.compute = [pre_loop]
+                    res = bind(node.eval, pre_loop.iterate)
+                    for i in range(1, len(size)):
+                        loop = Loop(0, size[i], 1, [])
+                        pre_loop.body.append(loop)
+                        pre_loop = loop
+                        res = bind(res, pre_loop.iterate)
+
+                    assign = Assignment(res, val)
+                    pre_loop.body.append(assign)
+                else:
+                    node.compute = [Assignment(node.eval, val)]
+
+                l = node.compute[0]
+                for i in range(len(node.eval.size)):
+                    node.output_order.append((i, l))
+                    l = l.body[0]
+
             else:
-                node.compute = [Assignment(node.eval, val)]
-
-            l = node.compute[0]
-            for i in range(len(node.eval.size)):
-                node.output_order.append((i, l))
-                l = l.body[0]
+                node.decl = node.operators[1].decl
+                node.compute = node.operators[1].compute
+                replace_output(node.compute, node.operators[1].eval, node.eval)
+                node.operators[1].valid = False
 
 
         elif node.op_type == 'einsum':

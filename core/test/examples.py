@@ -860,6 +860,39 @@ def scan_test2():
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
+def redirect_test():
+    data = Tensor('data', (10, 20), dtype='float')
+    res = (data + 1) >> data
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+def prefix_sum1():
+    data = Tensor('data', (10, ), dtype='float')
+    psum = Tensor('psum', (10, ), dtype='float')
+
+    psum = (data + psum[-1:9]) >> psum
+    code = codegen.cpu.print_cpp(psum._gen_ir())
+    print(code)
+
+
+def prefix_sum2():
+    data = Tensor('data', (10, ), dtype='float')
+    psum = Tensor('psum', (11, ), dtype='float')
+
+    psum = (data[-1:10] + psum[-1:10]) >> psum
+    code = codegen.cpu.print_cpp(psum._gen_ir())
+    print(code)
+
+def prefix_sum3():
+    data = Tensor('data', (10, 30), dtype='float')
+    psum = Tensor('psum', (11, 30), dtype='float')
+
+    psum = psum.setval(0)
+    psum = (data[-1:10] + psum[-1:10]) >> psum
+    code = codegen.cpu.print_cpp(psum._gen_ir())
+    print(code)
+
+
 
 if __name__ == "__main__":
     # conv1d_v1()
@@ -886,14 +919,14 @@ if __name__ == "__main__":
     # compression()
     # test_math1()
     # test_math2()
-    apply_test1()
-    apply_test2()
-    apply_test3()
-    apply_test4()
-    apply_test5()
-    apply_test6()
-    apply_test7()
-    apply_test8()
+    # apply_test1()
+    # apply_test2()
+    # apply_test3()
+    # apply_test4()
+    # apply_test5()
+    # apply_test6()
+    # apply_test7()
+    # apply_test8()
     # reduce_test1()
     # reduce_test2()
     # reduce_test3()
@@ -908,3 +941,4 @@ if __name__ == "__main__":
     # scan_test1()
     # scan_test2()
     # cmp_test()
+    prefix_sum3()
