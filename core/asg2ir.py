@@ -188,8 +188,6 @@ def gen_ir(node):
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
 
-        # since setval resets all values in a Tensor, it does not have input orders
-
             node.eval = node.operators[0].eval
 
             if is_scalar(node.operators[1]):
@@ -217,7 +215,7 @@ def gen_ir(node):
                     l = l.body[0]
 
             else:
-                node.decl = node.operators[1].decl
+                node.decl = [d for d in node.operators[1].decl if d.dobject != node.operators[1].eval]
                 node.compute = node.operators[1].compute
                 replace_output(node.compute, node.operators[1].eval, node.eval)
                 node.operators[1].valid = False
@@ -372,7 +370,7 @@ def gen_ir(node):
             node.compute = [outer_loop]
 
             out_ofs = node.operators[1]
-            res = bind(node.eval, outer_loop.iterate)
+            res = bind(node.eval, outer_loop.iterate) if out_ofs == None else node.eval
             replace_output(node.compute, ret.eval, res)
             # if there is an offset for output storage
             if out_ofs != None:
@@ -463,74 +461,6 @@ def gen_ir(node):
             replace_output(node.compute, ret.eval, node.eval)
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
-
-        elif node.op_type == 'scan':
-            node.operators[0]._gen_ir()
-            node.operators[2]._gen_ir()
-            axis = node.operators[2].eval.val
-
-            size = helpers.get_ir_of_size(node._size())
-            if len(size) > 0:
-                node.eval = Ndarray(node.dtype, size)
-            else:
-                node.eval = Scalar(node.dtype)
-
-            ninits = (len(node.operators) - 5) // 2
-
-            for init in node.operators[3:3+ninits]:
-                init._gen_ir() # init
-            node.operators[3].decl.append(Decl(node.eval))
-
-            outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
-
-            item = node.operators[4]
-            item.eval = node.operators[0].eval
-            for i in range(axis):
-                item.eval = Indexing(item.eval, Literal(-1, 'int'))
-            item.eval = Indexing(item.eval, outer_loop.iterate)
-            item.decl = []
-
-            ys = node.operators[5:5+ninits]
-            for i in range(len(ys)):
-                ys[i].eval = node.eval
-                ys[i].eval = Indexing(ys[i].eval, Expr(outer_loop.iterate, Literal(i, 'int'), '+'))
-                ys[i].decl = []
-
-            ret = node.operators[-1]
-            ret._gen_ir()
-
-            def action(node, res):
-                if node.valid == True:
-                    if type(node) == Var or type(node) == Tensor:
-                        res.extend(node.decl)
-                        node.valid = False
-                    elif type(node) == TensorOp:
-                        res.extend(node.decl)
-                        res.extend(node.compute)
-                        node.valid = False
-
-            t = helpers.Traversal(action)
-            ret_ir = t(ret)
-            ret_decl = []
-            ret_compute = []
-
-            for ir in ret_ir:
-                if type(ir) == Decl:
-                    ret_decl.append(ir)
-                else:
-                    ret_compute.append(ir)
-
-            outer_loop.body.extend(ret_compute)
-            node.decl.extend(ret_decl)
-            node.compute.append(outer_loop)
-
-            replace_output(node.compute, ret.eval, Indexing(node.eval, Expr(outer_loop.iterate, Literal(len(ys), 'int'), '+')))
-            node.decl = [d for d in node.decl if d.dobject != ret.eval]
-
-            # TODO: need testing
-            node.output_order = [(0, outer_loop)]
-            for i in range(len(ret.output_order)):
-                node.output_order.append((i+1, ret.output_order[i][1]))
 
         elif node.op_type == 'aggr':
             node.operators[0]._gen_ir() # input tensor

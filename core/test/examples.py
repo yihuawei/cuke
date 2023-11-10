@@ -870,7 +870,7 @@ def prefix_sum1():
     data = Tensor('data', (10, ), dtype='float')
     psum = Tensor('psum', (10, ), dtype='float')
 
-    psum = (data + psum[-1:9]) >> psum
+    psum = psum.setval(data + psum[-1:9])
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
@@ -879,7 +879,7 @@ def prefix_sum2():
     data = Tensor('data', (10, ), dtype='float')
     psum = Tensor('psum', (11, ), dtype='float')
 
-    psum = (data[-1:10] + psum[-1:10]) >> psum
+    psum = psum.setval(data[-1:10] + psum[-1:10])
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
@@ -887,8 +887,7 @@ def prefix_sum3():
     data = Tensor('data', (10, 30), dtype='float')
     psum = Tensor('psum', (11, 30), dtype='float')
 
-    psum = psum.setval(0)
-    psum = (data[-1:10] + psum[-1:10]) >> psum
+    psum = psum.setval(data[-1:10] + psum[-1:10])
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
