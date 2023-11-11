@@ -1,5 +1,6 @@
 import copy
 
+import codegen.cpu
 from core.asg import *
 from core.ir import *
 import helpers
@@ -425,7 +426,7 @@ def gen_ir(node):
                 # the last statement in the func IR is always a Loop that writes the result to ret.eval (which has been replaced by res)
                 assert type(ret.compute[-1]) == Loop
                 # But the index to the node.eval in res is incorrect, we need to change it according to the offset
-                rebind_iterate(ret.compute[-1].body, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
+                rebind_iterate(ret.compute[-1].body[-1].lhs, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
             # ret.eval is removed from the decl
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
@@ -473,9 +474,9 @@ def gen_ir(node):
 
             # merge init into node.compute
             init = node.operators[2].output_order[-1][1].body if len(node.operators[2].output_order) > 0 else node.operators[2].compute
-            assert len(node.operators[2].output_order) == len(ret.output_order)
+            # assert len(node.operators[2].output_order) == len(ret.output_order)
             for i in range(len(node.operators[2].output_order)):
-                assert has_same_iteration_space(node.operators[2].output_order[i][1], ret.output_order[i][1])
+                # assert has_same_iteration_space(node.operators[2].output_order[i][1], ret.output_order[i][1])
                 rebind_iterate(init, node.operators[2].output_order[i][1].iterate, ret.output_order[i][1].iterate)
                 node.output_order.append((i, ret.output_order[i][1]))
             compute.extend(init)

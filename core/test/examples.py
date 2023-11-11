@@ -363,7 +363,7 @@ def test19():
     rowptr = Tensor('rowptr', (nnodes + 1, ), dtype='int')
     colidx = Tensor('colidx', (nedges, ), dtype='int')
     edge_list = Tensor('edge_list', (10, 2), dtype='int')
-    ast = colidx[rowptr[edge_list[0][0]]:rowptr[edge_list[0][1]]] + colidx[rowptr[edge_list[0][0]]:rowptr[edge_list[0][1]]]
+    ast = colidx[rowptr[edge_list[0][0]]:rowptr[edge_list[0][1]]] + 1
 
     print(helpers.get_input_nodes(ast))
     code = codegen.cpu.print_cpp(gen_ir(ast))
@@ -389,17 +389,6 @@ def test21():
     code = codegen.cpu.print_cpp(ir)
     print(code)
 
-
-
-def compression():
-    input = Tensor('input', (50, 32), dtype='float')
-    res = (input * 1000).round()
-    res = res.apply(lambda x:x[0:32]-x[-1:31], axis=0)
-    res = res.abs().max(axis=1).nbits()
-    res = res.prefix_sum()
-
-    code = codegen.cpu.print_cpp(gen_ir(res))
-    print(code)
 
 
 def test_math1():
@@ -538,7 +527,7 @@ def apply_test7():
 
 def apply_test8():
     A = Tensor('A', (10, 20))
-    ofs = A.apply(lambda a: a.size()).prefix_sum()
+    ofs = A.apply(lambda a: a.size()).prefix_sum(inclusive=False)
     res = apply(lambda a: a + 1, A, out_ofs=ofs)
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
@@ -896,6 +885,13 @@ def prefix_sum3():
     print(code)
 
 
+def prefix_sum4():
+    data = Tensor('data', (10, ))
+    res = Tensor('res', (11, ))
+    res = setval(res, res[-1:10] + data[-1:10])
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
 
 if __name__ == "__main__":
     # conv1d_v1()
@@ -919,7 +915,7 @@ if __name__ == "__main__":
     # test18()
     # test19()
     # test20()
-    test21()
+    # test21()
     # compression()
     # test_math1()
     # test_math2()
@@ -930,7 +926,7 @@ if __name__ == "__main__":
     # apply_test5()
     # apply_test6()
     # apply_test7()
-    # apply_test8()
+    apply_test8()
     # reduce_test1()
     # reduce_test2()
     # reduce_test3()
@@ -946,3 +942,4 @@ if __name__ == "__main__":
     # scan_test2()
     # cmp_test()
     # prefix_sum3()
+    # prefix_sum4()

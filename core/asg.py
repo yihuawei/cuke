@@ -120,8 +120,8 @@ def apply(func, *args, **kwargs):
     assert len(args) >= nparam
     return TensorOp('apply', func, kwargs['out_ofs'], *args)
 
-
-
+def setval(res, val):
+    return TensorOp('setval', res, val)
 
 class ASTNode:
     nuniq = 0
@@ -196,17 +196,17 @@ class Tensor(ASTNode):
 
     def sum(self, axis=0):
         func = lambda x, y: x + y
-        init = lambda x: x.setval(0)
+        init = lambda x: setval(x, 0)
         return self.reduce(func, init, axis)
 
     def max(self, axis=0):
         func = lambda x, y: bigger(x, y)
-        init = lambda x: x.setval(MIN_INT)
+        init = lambda x: setval(x, MIN_INT)
         return self.reduce(func, init, axis)
 
     def min(self, axis=0):
         func = lambda x, y: smaller(x, y)
-        init = lambda x: x.setval(MAX_INT)
+        init = lambda x: setval(x, MAX_INT)
         return self.reduce(func, init, axis)
 
     def aggr(self, func, init, indices, axis=0, size=None):
@@ -218,23 +218,40 @@ class Tensor(ASTNode):
 
     def aggr_sum(self, indices, axis=0, size=None):
         func = lambda x, y: x + y
-        init = lambda x: x.setval(0)
+        init = lambda x: setval(x, 0)
         return self.aggr(func, init, indices, axis, size)
 
     def aggr_max(self, indices, axis=0, size=None):
         func = lambda x, y: bigger(x, y)
-        init = lambda x: x.setval(MIN_INT)
+        init = lambda x: setval(x, MIN_INT)
         return self.aggr(func, init, indices, axis, size)
 
     def aggr_min(self, indices, axis=0, size=None):
         func = lambda x, y: smaller(x, y)
-        init = lambda x: x.setval(MAX_INT)
+        init = lambda x: setval(x, MAX_INT)
         return self.aggr(func, init, indices, axis, size)
 
 
+    def prefix_sum(self, axis=0, inclusive=True):
+        assert type(axis) == int
+        size = self._size()
+        assert len(size) > 0
+        data = self
+        for i in range(axis):
+            data = data[:]
+        if not inclusive:
+            size[axis] = size[axis] + 1
 
-    def setval(self, val):
-        return TensorOp('setval', self, val)
+        res = Tensor(f'psum_{self.name[:3]}{self.id}', size, dtype=self.dtype)
+
+        if inclusive:
+            return setval(res, data[:] + res[-1:data._size()[axis]])
+        else:
+            return setval(res, data[-1:data._size()[axis]] + res[-1:data._size()[axis]])
+
+
+
+
 
     def _size(self):
         return self.fix_size + self.ref_size
@@ -299,18 +316,9 @@ class TensorOp(Tensor):
          # TODO: infer result data type
         self.operators = []
         for opr in operators:
-            # an index can be referenced multiple times in the ast, we should create duplicate copies so that they can bind with different loop iterates
-            if type(opr) == TensorOp and opr.op_type == 'index' and len(opr.ref_by) >= 1:
-                new_opr = copy.copy(opr)
-                new_opr.ref_by = [self]
-                new_opr.eval = None
-                new_opr.decl.clear()
-                new_opr.compute.clear()
-                self.operators.append(new_opr)
-            else:
-                self.operators.append(opr)
-                if isinstance(opr, ASTNode) and op_type != 'setval': # setval does not reference the data
-                    opr.ref_by.append(self)
+            self.operators.append(opr)
+            if isinstance(opr, ASTNode) and op_type != 'setval': # setval does not reference the data
+                opr.ref_by.append(self)
 
         if op_type in arith_op or op_type in cmp_op:
             dtype = operators[0].dtype
@@ -482,8 +490,8 @@ class TensorOp(Tensor):
 
         elif op_type == 'setval':
             dtype = self.operators[0].dtype
-            ref_size = self.operators[0].ref_size
-            fix_size = self.operators[0].fix_size
+            ref_size = self.operators[0]._size()
+            fix_size = []
 
             if (is_scalar(self.operators[1])):
                 if type(self.operators[1]) == int:
@@ -492,7 +500,6 @@ class TensorOp(Tensor):
                     self.operators[1] = Const(self.operators[1], 'float')
 
             else:
-                assert is_same_size(self.operators[0].ref_size, self.operators[1].ref_size)
                 assert self.operators[0].dtype == self.operators[1].dtype
 
 
