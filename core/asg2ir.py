@@ -1,3 +1,5 @@
+import copy
+
 from core.asg import *
 from core.ir import *
 import helpers
@@ -24,8 +26,26 @@ def bind(index: (Indexing, Ndarray, Slice), idx):
     if x == None:
         return Indexing(index, idx)
     else:
+        old = copy.copy(x.idx)
         x.idx = idx
-        return index
+        new_index = copy.deepcopy(index)
+        x.idx = old
+        return new_index
+
+
+def get_slice(index: (Indexing, Ndarray, Slice)):
+    if type(index) == Indexing:
+        x = get_slice(index.dobject)
+        if x != None:
+            return x
+        else:
+            y = get_slice(index.idx)
+            if y != None:
+                return y
+            else:
+                if type(index.dobject) == Slice and type(index.idx) == Literal and index.idx.val == -1:
+                    return index.dobject
+    return None
 
 
 def replace_output(ir, old, new):
@@ -47,6 +67,78 @@ def replace_output(ir, old, new):
 
 def has_same_iteration_space(l1, l2):
     return has_same_value(l1.start, l2.start) and has_same_value(l1.end, l2.end) and has_same_value(l1.step, l2.step)
+
+
+def gen_binary_op(left, right, res, op, ir, level, left_max_level, right_max_level, res_size):
+
+    max_level = max(left_max_level, right_max_level)
+    if level == max_level:
+        assign = Assignment(res, Expr(left, right, op))
+        ir.append(assign)
+    else:
+        ssl = get_slice(left)
+        ssr = get_slice(right)
+        if ssl != None and type(ssl.start) == Literal:
+            ssl = ssl.start.val
+            if ssl < 0:
+                ssl = 0 - ssl
+            else:
+                ssl = 0
+        else:
+            ssl = 0
+
+        if ssr != None and type(ssr.start) == Literal:
+            ssr = ssr.start.val
+            if ssr < 0:
+                ssr = 0 - ssr
+            else:
+                ssr = 0
+        else:
+            ssr = 0
+
+        ssi = min(ssl, ssr)
+
+        for i in range(ssi):
+            lhs1 = Literal('0', dtype=left.dtype)
+            rhs1 = Literal('0', dtype=right.dtype)
+            res1 = bind(res, Literal(i, 'int'))
+            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
+
+        for i in range(ssi, ssl):
+            lhs1 = Literal('0', dtype=left.dtype)
+            if type(right) != Literal:
+                rhs1 = bind(right, Literal(i - ssi, 'int'))
+            else:
+                rhs1 = right
+            res1 = bind(res, Literal(i, 'int'))
+            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
+
+        for i in range(ssi, ssr):
+            if type(left) != Literal:
+                lhs1 = bind(left, Literal(i - ssi, 'int'))
+            else:
+                lhs1 = left
+            rhs1 = Literal('0', dtype=right.dtype)
+            res1 = bind(res, Literal(i, 'int'))
+            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
+
+        ssa = max(ssl, ssr)
+
+        pre_loop = Loop(ssa, res_size[level], 1, [])
+        if level < left_max_level and type(left) != Literal:
+            lhs = bind(left, pre_loop.iterate)
+        else:
+            lhs = left
+        if level < right_max_level and type(right) != Literal:
+            rhs = bind(right, pre_loop.iterate)
+        else:
+            rhs = right
+        res = bind(res, pre_loop.iterate)
+
+        gen_binary_op(lhs, rhs, res, op, pre_loop.body, level+1, left_max_level, right_max_level, res_size)
+        ir.append(pre_loop)
+
+
 
 def gen_ir(node):
     assert isinstance(node, ASTNode)
@@ -80,72 +172,28 @@ def gen_ir(node):
             node.input_orders[0] = []
             node.input_orders[1] = []
             assert isinstance(node.operators[0], Tensor) and isinstance(node.operators[1], Tensor)
-            if is_same_size(node.operators[0]._size(), node.operators[1]._size()):
-                if len(node._size()) > 0:
-                    size = helpers.get_ir_of_size(node._size())
-                    node.eval = Ndarray(node.dtype, size)
-                    node.decl = [Decl(node.eval)]
-                    pre_loop = Loop(0, node.eval.size[0], 1, [])
-                    node.compute = [pre_loop]
-                    lhs = bind(node.operators[0].eval, pre_loop.iterate)
-                    rhs = bind(node.operators[1].eval, pre_loop.iterate)
-                    res = bind(node.eval, pre_loop.iterate)
-                    for i in range(1, len(node.eval.size)):
-                        loop = Loop(0, node.eval.size[i], 1, [])
-                        pre_loop.body.append(loop)
-                        pre_loop = loop
-                        lhs = bind(lhs, pre_loop.iterate)
-                        rhs = bind(rhs, pre_loop.iterate)
-                        res = bind(res, pre_loop.iterate)
 
-                    if node.op_type in arith_op:
-                        op = arith_op[node.op_type]
-                    else:
-                        op = node.op_type
-                    assign = Assignment(res, Expr(lhs, rhs, op))
-                    pre_loop.body.append(assign)
-
-                else:
-                    node.eval = Scalar(node.dtype)
-                    node.decl = [Decl(node.eval)]
-                    if node.op_type in arith_op:
-                        op = arith_op[node.op_type]
-                    else:
-                        op = node.op_type
-                    node.compute = [Assignment(node.eval, Expr(node.operators[0].eval, node.operators[1].eval, op))]
+            if node.op_type in arith_op:
+                op = arith_op[node.op_type]
             else:
+                op = node.op_type
+            if len(node._size()) > 0:
                 size = helpers.get_ir_of_size(node._size())
                 node.eval = Ndarray(node.dtype, size)
-                node.decl = [Decl(node.eval)]
-                pre_loop = Loop(0, node.eval.size[0], 1, [])
-                node.compute = [pre_loop]
-                lhs = bind(node.operators[0].eval, pre_loop.iterate)
-                rhs = node.operators[1].eval
-                rhs_level = 1
-                res = bind(node.eval, pre_loop.iterate)
-                for i in range(1, len(node.eval.size)):
-                    loop = Loop(0, node.eval.size[i], 1, [])
-                    pre_loop.body.append(loop)
-                    pre_loop = loop
-                    lhs = bind(lhs, pre_loop.iterate)
-                    if rhs_level < len(node.operators[1].ref_size):
-                        rhs = bind(rhs, pre_loop.iterate)
-                        rhs_level += 1
-                    res = bind(res, pre_loop.iterate)
+            else:
+                size = []
+                node.eval = Scalar(node.dtype)
+            node.decl = [Decl(node.eval)]
 
-                if node.op_type in arith_op:
-                    op = arith_op[node.op_type]
-                else:
-                    op = node.op_type
-                assign = Assignment(res, Expr(lhs, rhs, op))
-                pre_loop.body.append(assign)
+            gen_binary_op(node.operators[0].eval, node.operators[1].eval, node.eval, op, node.compute, 0, len(node.operators[0]._size()), len(node.operators[1]._size()), size)
 
-            l = node.compute[0]
-            for i in range(len(node.eval.size)):
-                node.output_order.append((i, l))
-                node.input_orders[0].append((i, l))
-                node.input_orders[1].append((i, l))
-                l = l.body[0]
+            # TODO: handle negative slice
+            # l = node.compute[0]
+            # for i in range(len(node.eval.size)):
+            #     node.output_order.append((i, l))
+            #     node.input_orders[0].append((i, l))
+            #     node.input_orders[1].append((i, l))
+            #     l = l.body[0]
 
 
 

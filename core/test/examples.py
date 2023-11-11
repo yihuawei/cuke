@@ -7,21 +7,19 @@ from core.opt import fuse
 
 def test1():
     def func():
-        A = Tensor('a', (10, 10))
-        B = Tensor('b', (10, 10))
-        C = Tensor('c', (10, 10))
-        return A + B - C
+        A = Tensor('a', (10, 20))
+        B = Tensor('b', (10, 20))
+        return A + B - 1
 
     ast = func()
-    code = codegen.cpu.print_cpp(fuse.fuse(ast._gen_ir()))
+    code = codegen.cpu.print_cpp(ast._gen_ir())
     print(code)
 
-    A = torch.rand(10, 10)
-    B = torch.rand(10, 10)
-    C = torch.rand(10, 10)
+    A = torch.rand(10, 20)
+    B = torch.rand(10, 20)
 
-    d = run.cpu.compile_and_run(code, A, B, C)
-    print(torch.equal(A + B - C, d))
+    d = run.cpu.compile_and_run(code, A, B)
+    print(torch.equal(A + B - 1, d))
 
 
 def test2():
@@ -121,20 +119,18 @@ def test7():
 def test8():
     A = Tensor('a', (10, 10))
     idx = Tensor('idx', (5, ), dtype='int')
-    t = Tensor('t', A[0][idx]._size())
 
-    ast = A[0][idx] + t
+    ast = A[0][idx] + 1
     ir = gen_ir(ast)
 
     code = codegen.cpu.print_cpp(ir)
     A = torch.rand(10, 10)
     idx = torch.IntTensor(5)
-    t = torch.rand(A[0][idx].shape)
-    d = run.cpu.compile_and_run(code, A, idx, t)
+    d = run.cpu.compile_and_run(code, A, idx)
 
     print(d)
 
-    print(torch.equal(d, A[0][idx] + t))
+    print(torch.equal(d, A[0][idx] + 1))
 
 def test9():
     A = Tensor('a', (10, 10))
@@ -298,17 +294,12 @@ def test15():
     A = Tensor('A', (100, ))
     B = Tensor('B', (100, ))
 
-    ast = A[1:10] + B[1:10]
+    ast = A[1:10] + A[0:9] + B[-1:8]
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
     code = codegen.cpu.print_cpp(ir)
-    A = torch.rand(100)
-    B = torch.rand(100)
-    d = run.cpu.compile_and_run(code, A, B)
-
-    print(A[1:10] + B[1:10])
-    print(torch.equal(A[1:10] + B[1:10], d))
+    print(code)
 
 
 
@@ -385,6 +376,19 @@ def test20():
     res = A + 10
     code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)
+
+
+def test21():
+    A = Tensor('A', (100, 20))
+    B = Tensor('B', (100, 20))
+
+    ast = A[-1:8][10:20] + B[1:10][-1:9]
+    print(helpers.get_input_nodes(ast))
+    ir = gen_ir(ast)
+
+    code = codegen.cpu.print_cpp(ir)
+    print(code)
+
 
 
 def compression():
@@ -915,6 +919,7 @@ if __name__ == "__main__":
     # test18()
     # test19()
     # test20()
+    test21()
     # compression()
     # test_math1()
     # test_math2()
@@ -940,4 +945,4 @@ if __name__ == "__main__":
     # scan_test1()
     # scan_test2()
     # cmp_test()
-    prefix_sum3()
+    # prefix_sum3()

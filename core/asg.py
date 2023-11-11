@@ -95,7 +95,8 @@ def is_same_size(s1, s2):
     return True
 
 def prefix_match_size(s1, s2):
-    for i in range(len(s2)):
+    length = min(len(s1), len(s2))
+    for i in range(length):
         if s1[i] != s2[i]:
             if type(s1[i]) == type(s2[i]):
                 return has_same_value(s1[i], s2[i])
@@ -321,11 +322,11 @@ class TensorOp(Tensor):
                 self.operators[1] = Const(self.operators[1], 'int')
             elif type(operators[1]) == float:
                 self.operators[1] = Const(self.operators[1], 'float')
-            if len(self.operators[0]._size()) < len(self.operators[1]._size()):
-                self.operators[0], self.operators[1] = self.operators[1], self.operators[0]
             assert prefix_match_size(self.operators[0]._size(), self.operators[1]._size())
-
-            ref_size = self.operators[0].fix_size + self.operators[0].ref_size
+            if (len(self.operators[0]._size()) > len(self.operators[1]._size())):
+                ref_size = self.operators[0]._size()
+            else:
+                ref_size = self.operators[1]._size()
             fix_size = []
 
         elif op_type == 'einsum':

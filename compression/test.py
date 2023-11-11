@@ -31,24 +31,24 @@ def compression():
 
 def invert_lorenzo():
     nblocks = 50
-    # input = Tensor('input', (nblocks, 32), dtype='float')
-    # quant_res = (input * 1000).round()
-    # lorenzo_res = quant_res[:][0:32] - quant_res[:][-1:31]
-    #
-    # recover_res = Tensor('recovered', input._size(), dtype='float')
-    # recover_res.setval(0)
-    # recover_res = recover_res.setval(recover_res[:][-1:31] + lorenzo_res[:][0:32])
-    #
-    # res = recover_res
-    #
-    # code = codegen.cpu.print_cpp(fuse(res._gen_ir()))
-    # code = '#include "../../compression/util.h"\n' + code
-    #
+    input = Tensor('input', (nblocks, 32), dtype='float')
+    quant_res = (input * 1000).round()
+    lorenzo_res = quant_res[:][0:32] - quant_res[:][-1:31]
+
+    recover_res = Tensor('recovered', input._size(), dtype='float')
+    recover_res.setval(0)
+    recover_res = recover_res.setval(recover_res[:][-1:31] + lorenzo_res[:][0:32])
+
+    res = recover_res
+
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    code = '#include "../../compression/util.h"\n' + code
+
     data = torch.rand(nblocks, 32)
 
     print((data * 1000).round())
 
-    d = run.cpu.run(data)
+    d = run.cpu.compile_and_run(code, data)
     print(d)
 
 
