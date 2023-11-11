@@ -183,7 +183,6 @@ class Tensor(ASTNode):
         return TensorOp('index', self, idx)
 
     def apply(self, func, axis=0, out_ofs=None):
-        # TODO: not sure if apply needs out_ofs
         assert callable(func)
         return TensorOp('apply', func, out_ofs, self, axis)
 

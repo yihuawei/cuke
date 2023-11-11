@@ -6,3 +6,7 @@ def compile_and_run(code, *args):
     f.close()
     module = load(name='module', sources=['run/.tmp/cpu_code.cpp'])
     return module.run(*args)
+
+def run(*args):
+    module = load(name='module', sources=['run/.tmp/cpu_code.cpp'])
+    return module.run(*args)
