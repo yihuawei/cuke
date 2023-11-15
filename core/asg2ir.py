@@ -82,7 +82,6 @@ def replace_output(ir, old, new):
 def has_same_iteration_space(l1, l2):
     return has_same_value(l1.start, l2.start) and has_same_value(l1.end, l2.end) and has_same_value(l1.step, l2.step)
 
-
 def gen_ir(node):
     assert isinstance(node, ASTNode)
     if node.eval or len(node.decl) > 0 or (type(node) == TensorOp and len(node.compute) > 0):

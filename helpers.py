@@ -86,3 +86,21 @@ def get_ir_of_size(size):
         ir_size.append(s.eval)
     return ir_size
 
+def collect_ir(ast, ir):
+    import batch
+    def action(node, res):
+        if node.valid == True:
+            if isinstance(node, Tensor):
+                res.extend(node.decl)
+                res.extend(node.compute)
+            elif type(node) == batch.ast.BatchOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+            elif type(node) == cset.ast.Set:
+                res.extend(node.decl)
+            elif type(node) == cset.ast.SetOp:
+                res.extend(node.decl)
+                res.extend(node.compute)
+
+    t = Traversal(action)
+    ir.extend(t(ast))

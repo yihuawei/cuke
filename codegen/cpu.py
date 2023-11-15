@@ -7,6 +7,7 @@ import cset
 import random
 import string
 from codegen.oob import lower_bound_padding
+from codegen.tensorize import tensorize
 
 def to_string(ir):
     match ir.__class__.__name__:
@@ -89,34 +90,11 @@ def to_string(ir):
             return str(ir)
 
 
-def gen_cpp(ast, ir):
-    def action(node, res):
-        if node.valid == True:
-            if type(node) == Var or type(node) == Tensor:
-                res.extend(node.decl)
-            elif type(node) == TensorOp:
-                res.extend(node.decl)
-                res.extend(node.compute)
-            elif type(node) == batch.ast.BatchOp:
-                res.extend(node.decl)
-                res.extend(node.compute)
-            elif type(node) == cset.ast.Set:
-                res.extend(node.decl)
-            elif type(node) == cset.ast.SetOp:
-                res.extend(node.decl)
-                res.extend(node.compute)
-            elif type(node) == compression.asg.Encoder:
-                res.extend(node.decl)
-                res.extend(node.compute)
-
-    t = helpers.Traversal(action)
-    ir.extend(t(ast))
-
 def print_cpp(asg):
     ir = []
     lower_bound_padding(asg)
 
-    gen_cpp(asg, ir)
+    helpers.collect_ir(asg, ir)
 
 
     args = helpers.get_input_nodes(asg)

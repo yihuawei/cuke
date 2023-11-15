@@ -391,6 +391,8 @@ def test21():
 
 
 
+
+
 def test_math1():
     input = Tensor('input', (50, 32), dtype='float')
     res = input[0].abs()
@@ -536,6 +538,29 @@ def apply_test9():
     A = Tensor('A', (10, 20))
     ofs = A.apply(lambda a: a.size()).prefix_sum(inclusive=False)
     res = apply(lambda i, j: A[i:j] + 1, (ofs[:ofs._size()[0]-1], ofs[1:]), out_ofs=ofs)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+
+def apply_test10():
+    ndevs = 4
+    nnodes = 1000
+    dim = 512
+    batch_size = 32
+    buffer_size = nnodes // ndevs
+    buffers = Tensor('buffers', (ndevs, buffer_size, dim))
+    dev_ids = Tensor('dev_ids', (nnodes, ), dtype='int')
+    buf_ofs = Tensor('buf_ofs', (nnodes, ), dtype='int')
+
+    sampled_nodes = Tensor('sampled_nodes', (batch_size, ), dtype='int')
+
+    devs = Tensor('devs', (ndevs, ), dtype='int')
+
+    # rowptr is obtained by sorting sampled_nodes according to their dev_ids
+    rowptr = Tensor('rowptr', (ndevs+1, ), dtype='int')
+
+
+    res = devs.apply(lambda d: buffers[rowptr[d]:rowptr[d+1]] + 1)
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
@@ -925,9 +950,10 @@ if __name__ == "__main__":
     # apply_test4()
     # apply_test5()
     # apply_test6()
-    apply_test7()
-    apply_test8()
+    # apply_test7()
+    # apply_test8()
     apply_test9()
+    apply_test10()
     # reduce_test1()
     # reduce_test2()
     # reduce_test3()
