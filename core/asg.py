@@ -111,14 +111,17 @@ def bigger(x, y):
 def smaller(x, y):
     return TensorOp('smaller', x, y)
 
+
 # By default, the output of func should have the same size for any input, but they can have different sizes in the first dim if out_ofss is provided
-def apply(func, *args, **kwargs):
-    defaultKwargs = {'out_ofs': None}
-    kwargs = defaultKwargs | kwargs
+def apply(func, data: (list, tuple), axes = None, out_ofs = None):
     assert callable(func)
     nparam = len(inspect.signature(func).parameters)
-    assert len(args) >= nparam
-    return TensorOp('apply', func, kwargs['out_ofs'], *args)
+    assert len(data) == nparam
+    if axes == None:
+        axes = []
+    while (len(axes) < nparam):
+        axes.append(Const(0, 'int'))
+    return TensorOp('apply', func, *data, *axes, out_ofs)
 
 def setval(res, val):
     return TensorOp('setval', res, val)
@@ -185,7 +188,7 @@ class Tensor(ASTNode):
 
     def apply(self, func, axis=0, out_ofs=None):
         assert callable(func)
-        return TensorOp('apply', func, out_ofs, self, axis)
+        return TensorOp('apply', func, self, axis, out_ofs)
 
 
     def reduce(self, func, init, axis=0):
@@ -237,17 +240,19 @@ class Tensor(ASTNode):
         size = self._size()
         assert len(size) > 0
         data = self
-        for i in range(axis):
-            data = data[:]
         if not inclusive:
             size[axis] = size[axis] + 1
+        out = res = Tensor(f'psum_{self.name[:3]}{self.id}', size, dtype=self.dtype)
 
-        res = Tensor(f'psum_{self.name[:3]}{self.id}', size, dtype=self.dtype)
+        for i in range(axis):
+            data = data[:]
+            res = res[:]
+
 
         if inclusive:
-            return setval(res, data[:] + res[-1:data._size()[axis]])
+            return setval(out, data[:] + res[-1:size[axis]-1])
         else:
-            return setval(res, data[-1:data._size()[axis]] + res[-1:data._size()[axis]])
+            return setval(out, data[-1:data._size()[axis]] + res[-1:size[axis] - 1])
 
 
 
@@ -400,15 +405,13 @@ class TensorOp(Tensor):
             func = self.operators[0]
             nparams = len(inspect.signature(func).parameters)
             for i in range(nparams):
-                if 2 + nparams + i < len(operators):
-                    axis = operators[2+nparams+i]
-                    self.operators[2+nparams+i] = Const(axis, 'int')
-                else:
-                    self.operators.append(Const(0, 'int'))
+                axis = operators[1+nparams+i]
+                if type(axis) == int:
+                    self.operators[1+nparams+i] = Const(axis, 'int')
 
             data = []
-            axis_size = self.operators[2]._size()[self.operators[2+nparams].val]
-            for i in range(2, 2+nparams):
+            axis_size = self.operators[1]._size()[self.operators[1+nparams].val]
+            for i in range(1, 1+nparams):
                 data_size = self.operators[i]._size()
                 axis = self.operators[nparams+i].val
                 # every input item should have the same size as the primary axis size
@@ -423,7 +426,7 @@ class TensorOp(Tensor):
 
             ret = self.operators[0](*data)
             dtype = ret.dtype
-            out_ofs = self.operators[1]
+            out_ofs = self.operators[1+2*nparams]
             if out_ofs == None:
                 ref_size = [axis_size] + ret._size()
             else:
@@ -433,7 +436,6 @@ class TensorOp(Tensor):
             self.operators.append(ret)
 
         elif op_type == 'reduce':
-            dtype = operators[0].dtype
             assert type(self.operators[3]) == int
             axis = self.operators[3]
             self.operators[3] = Const(axis, 'int')
@@ -513,4 +515,4 @@ class TensorOp(Tensor):
         if self.op_type in ('reduce', 'aggr'):
             self.operators[2] = self.operators[2](self)
 
-        self.input_orders = [None for o in self.operators]
+        self.input_orders = [[] for o in self.operators]

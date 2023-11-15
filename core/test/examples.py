@@ -12,7 +12,7 @@ def test1():
         return A + B - 1
 
     ast = func()
-    code = codegen.cpu.print_cpp(ast._gen_ir())
+    code = codegen.cpu.print_cpp(*fuse.fuse(ast._gen_ir()))
     print(code)
 
     A = torch.rand(10, 20)
@@ -298,7 +298,7 @@ def test15():
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
-    code = codegen.cpu.print_cpp(ir)
+    code = codegen.cpu.print_cpp(fuse.fuse(ir))
     print(code)
 
 
@@ -382,7 +382,7 @@ def test21():
     A = Tensor('A', (100, 20))
     B = Tensor('B', (100, 20))
 
-    ast = A[-1:8][10:20] + B[1:10][-1:9]
+    ast = A[-1:8][10:20] + B[1:10][-2:8]
     print(helpers.get_input_nodes(ast))
     ir = gen_ir(ast)
 
@@ -450,8 +450,8 @@ def apply_test2():
     d1 = Var('d1')
     d2 = Var('d2')
     A = Tensor('A', (d1, d2))
-    B = Tensor('B', (d2, ))
-    ast = A.apply(lambda x: x+B, axis=0)
+    B = Tensor('B', (d1, ))
+    ast = A.apply(lambda x: x+B, axis=1)
     ir = gen_ir(ast)
 
     code = codegen.cpu.print_cpp(ir)
@@ -504,14 +504,14 @@ def apply_test4():
 def apply_test5():
     A = Tensor('A', (10, 20))
     B = Tensor('B', (10, 20))
-    res = apply(lambda a, b: a + b, A, B)
+    res = apply(lambda a, b: a + b, (A, B))
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
 def apply_test6():
     A = Tensor('A', (10, 20))
     B = Tensor('B', (10, 20))
-    res = apply(lambda a, b: a + b, A, B, 1, 1)
+    res = apply(lambda a, b: a + b, (A, B), (1, 1))
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
@@ -519,8 +519,8 @@ def apply_test6():
 
 def apply_test7():
     A = Tensor('A', (10, 20))
-    B = Tensor('B', (10, ))
-    res = apply(lambda a, b: a + b, A, B)
+    B = Tensor('B', (20, ))
+    res = apply(lambda a, b: a + b, (A, B), (1, 0))
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
@@ -528,7 +528,14 @@ def apply_test7():
 def apply_test8():
     A = Tensor('A', (10, 20))
     ofs = A.apply(lambda a: a.size()).prefix_sum(inclusive=False)
-    res = apply(lambda a: a + 1, A, out_ofs=ofs)
+    res = apply(lambda a: a + 1, (A, ), out_ofs=ofs)
+    code = codegen.cpu.print_cpp(res._gen_ir())
+    print(code)
+
+def apply_test9():
+    A = Tensor('A', (10, 20))
+    ofs = A.apply(lambda a: a.size()).prefix_sum(inclusive=False)
+    res = apply(lambda i, j: A[i:j] + 1, (ofs[:ofs._size()[0]-1], ofs[1:]), out_ofs=ofs)
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
 
@@ -861,41 +868,33 @@ def redirect_test():
 
 def prefix_sum1():
     data = Tensor('data', (10, ), dtype='float')
-    psum = Tensor('psum', (10, ), dtype='float')
-
-    psum = psum.setval(data + psum[-1:9])
+    psum = data.prefix_sum()
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
 
 def prefix_sum2():
     data = Tensor('data', (10, ), dtype='float')
-    psum = Tensor('psum', (11, ), dtype='float')
-
-    psum = psum.setval(data[-1:10] + psum[-1:10])
+    psum = data.prefix_sum(inclusive=False)
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
 def prefix_sum3():
     data = Tensor('data', (10, 30), dtype='float')
-    psum = Tensor('psum', (11, 30), dtype='float')
+    psum = data.prefix_sum(axis=0, inclusive=False)
+    code = codegen.cpu.print_cpp(psum._gen_ir())
+    print(code)
 
-    psum = psum.setval(data[-1:10] + psum[-1:10])
+def prefix_sum4():
+    data = Tensor('data', (10, 30), dtype='float')
+    psum = data.prefix_sum(axis=1)
     code = codegen.cpu.print_cpp(psum._gen_ir())
     print(code)
 
 
-def prefix_sum4():
-    data = Tensor('data', (10, ))
-    res = Tensor('res', (11, ))
-    res = setval(res, res[-1:10] + data[-1:10])
-    code = codegen.cpu.print_cpp(res._gen_ir())
-    print(code)
-
 
 if __name__ == "__main__":
-    # conv1d_v1()
-    # conv1d_v2(3)
+    # basic tensor indexing tests
     # test1()
     # test2()
     # test3()
@@ -909,6 +908,7 @@ if __name__ == "__main__":
     # test12()
     # test13()
     # test14()
+    # some slicing test
     # test15()
     # test16()
     # test17()
@@ -925,8 +925,9 @@ if __name__ == "__main__":
     # apply_test4()
     # apply_test5()
     # apply_test6()
-    # apply_test7()
+    apply_test7()
     apply_test8()
+    apply_test9()
     # reduce_test1()
     # reduce_test2()
     # reduce_test3()
@@ -941,5 +942,7 @@ if __name__ == "__main__":
     # scan_test1()
     # scan_test2()
     # cmp_test()
+    # prefix_sum1()
+    # prefix_sum2()
     # prefix_sum3()
     # prefix_sum4()

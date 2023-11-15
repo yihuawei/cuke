@@ -105,6 +105,11 @@ def fuse(node, fusion_type = ['basic']):
                                     nl = node.input_orders[0][i][1]
                                     ol = node.operators[0].output_order[i][1]
                                     rebind_iterate(node.input_orders[0][-1][1].body, ol.iterate, nl.iterate)
+                                    if 'loop_ofs' in ol.attr:
+                                        if 'loop_ofs' in nl.attr:
+                                            nl.attr['loop_ofs'] = max(nl.attr['loop_ofs'], ol.attr['loop_ofs'])
+                                        else:
+                                            nl.attr['loop_ofs'] = ol.attr['loop_ofs']
 
                                 node.operators[0].decl = [d for d in node.operators[0].decl if get_obj(d) != node.operators[0].eval]
                                 node.decl.extend(node.operators[0].decl)
@@ -132,6 +137,11 @@ def fuse(node, fusion_type = ['basic']):
                                         nl = node.input_orders[1][i][1]
                                         ol = node.operators[1].output_order[i][1]
                                         rebind_iterate(node.input_orders[1][-1][1].body, ol.iterate, nl.iterate)
+                                        if 'loop_ofs' in ol.attr:
+                                            if 'loop_ofs' in nl.attr:
+                                                nl.attr['loop_ofs'] = max(nl.attr['loop_ofs'], ol.attr['loop_ofs'])
+                                            else:
+                                                nl.attr['loop_ofs'] = ol.attr['loop_ofs']
 
                                     node.operators[1].decl = [d for d in node.operators[1].decl if get_obj(d) != node.operators[1].eval]
                                     node.decl.extend(node.operators[1].decl)
@@ -144,10 +154,12 @@ def fuse(node, fusion_type = ['basic']):
 
 
 def test1():
-    A = Tensor('a', (10, 20)).setval(1)
+    A = Tensor('a', (10, 20))
     B = Tensor('b', (10, 20))
     C = Tensor('c', (10, 20))
     D = Tensor('d', (10, 20))
+
+    A = setval(A, 1)
     t1 = A + B
     t2 = (C - D).abs()
     res1 = t1 + t2

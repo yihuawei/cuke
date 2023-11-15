@@ -7,6 +7,14 @@ import helpers
 from core.opt.reorder import rebind_iterate
 
 
+def num_unbind(index):
+    if type(index) == Indexing:
+        return num_unbind(index.dobject) + num_unbind(index.idx)
+    elif type(index) == Literal and index.val == -1:
+        return 1
+    else:
+        return 0
+
 
 def get_first_unbind(index: (Indexing, Ndarray, Slice)):
     if type(index) == Indexing:
@@ -22,15 +30,20 @@ def get_first_unbind(index: (Indexing, Ndarray, Slice)):
     return None
 
 
-def bind(index: (Indexing, Ndarray, Slice), idx):
+def bind(index: (Indexing, Ndarray, Slice), idx, attr = {}):
     x = get_first_unbind(index)
     if x == None:
-        return Indexing(index, idx)
+        res = Indexing(index, idx)
+        res.attr.update(attr)
+        return res
     else:
         old = copy.copy(x.idx)
+        old_attr = copy.copy(x.attr)
         x.idx = idx
+        x.attr.update(attr)
         new_index = copy.deepcopy(index)
         x.idx = old
+        x.attr = old_attr
         return new_index
 
 
@@ -70,77 +83,6 @@ def has_same_iteration_space(l1, l2):
     return has_same_value(l1.start, l2.start) and has_same_value(l1.end, l2.end) and has_same_value(l1.step, l2.step)
 
 
-def gen_binary_op(left, right, res, op, ir, level, left_max_level, right_max_level, res_size):
-
-    max_level = max(left_max_level, right_max_level)
-    if level == max_level:
-        assign = Assignment(res, Expr(left, right, op))
-        ir.append(assign)
-    else:
-        ssl = get_slice(left)
-        ssr = get_slice(right)
-        if ssl != None and type(ssl.start) == Literal:
-            ssl = ssl.start.val
-            if ssl < 0:
-                ssl = 0 - ssl
-            else:
-                ssl = 0
-        else:
-            ssl = 0
-
-        if ssr != None and type(ssr.start) == Literal:
-            ssr = ssr.start.val
-            if ssr < 0:
-                ssr = 0 - ssr
-            else:
-                ssr = 0
-        else:
-            ssr = 0
-
-        ssi = min(ssl, ssr)
-
-        for i in range(ssi):
-            lhs1 = Literal('0', dtype=left.dtype)
-            rhs1 = Literal('0', dtype=right.dtype)
-            res1 = bind(res, Literal(i, 'int'))
-            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
-
-        for i in range(ssi, ssl):
-            lhs1 = Literal('0', dtype=left.dtype)
-            if type(right) != Literal:
-                rhs1 = bind(right, Literal(i - ssi, 'int'))
-            else:
-                rhs1 = right
-            res1 = bind(res, Literal(i, 'int'))
-            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
-
-        for i in range(ssi, ssr):
-            if type(left) != Literal:
-                lhs1 = bind(left, Literal(i - ssi, 'int'))
-            else:
-                lhs1 = left
-            rhs1 = Literal('0', dtype=right.dtype)
-            res1 = bind(res, Literal(i, 'int'))
-            gen_binary_op(lhs1, rhs1, res1, op, ir, level+1, left_max_level, right_max_level, res_size)
-
-        ssa = max(ssl, ssr)
-
-        pre_loop = Loop(ssa, res_size[level], 1, [])
-        if level < left_max_level and type(left) != Literal:
-            lhs = bind(left, pre_loop.iterate)
-        else:
-            lhs = left
-        if level < right_max_level and type(right) != Literal:
-            rhs = bind(right, pre_loop.iterate)
-        else:
-            rhs = right
-        res = bind(res, pre_loop.iterate)
-
-        gen_binary_op(lhs, rhs, res, op, pre_loop.body, level+1, left_max_level, right_max_level, res_size)
-        ir.append(pre_loop)
-
-
-
 def gen_ir(node):
     assert isinstance(node, ASTNode)
     if node.eval or len(node.decl) > 0 or (type(node) == TensorOp and len(node.compute) > 0):
@@ -168,35 +110,75 @@ def gen_ir(node):
 
     elif type(node) == TensorOp:
         if node.op_type in arith_op or node.op_type in cmp_op:
+            # arith_op and cmp_op are binary operations, we generate the two operands first
             node.operators[0]._gen_ir()
             node.operators[1]._gen_ir()
-            node.input_orders[0] = []
-            node.input_orders[1] = []
             assert isinstance(node.operators[0], Tensor) and isinstance(node.operators[1], Tensor)
 
             if node.op_type in arith_op:
                 op = arith_op[node.op_type]
             else:
                 op = node.op_type
-            if len(node._size()) > 0:
+
+            if len(node._size()) > 0: # if output has >=1 dimensions, it should be stored in an Ndarray
                 size = helpers.get_ir_of_size(node._size())
                 node.eval = Ndarray(node.dtype, size)
-            else:
+            else: # otherwise, it is a scalar
                 size = []
                 node.eval = Scalar(node.dtype)
             node.decl = [Decl(node.eval)]
 
-            gen_binary_op(node.operators[0].eval, node.operators[1].eval, node.eval, op, node.compute, 0, len(node.operators[0]._size()), len(node.operators[1]._size()), size)
+            left_levels = len(node.operators[0]._size())
+            right_levels = len(node.operators[1]._size())
+            max_levels = max(left_levels, right_levels)
+            assert max_levels == len(size)
 
-            # TODO: handle negative slice
-            # l = node.compute[0]
-            # for i in range(len(node.eval.size)):
-            #     node.output_order.append((i, l))
-            #     node.input_orders[0].append((i, l))
-            #     node.input_orders[1].append((i, l))
-            #     l = l.body[0]
+            lhs = node.operators[0].eval
+            rhs = node.operators[1].eval
+            res = node.eval
+            ir = node.compute
 
+            for level in range(max_levels):
 
+                # handle out of bound slicing
+                left_slice = get_slice(lhs)
+                right_slice = get_slice(rhs)
+                left_attr = {}
+                if left_slice != None and type(left_slice.start) == Literal:
+                    if left_slice.start.val < 0:
+                        left_ofs = -left_slice.start.val
+                        left_attr['slice_ofs'] = left_ofs
+                    else:
+                        left_ofs = 0
+                else:
+                    left_ofs = 0
+                right_attr = {}
+                if right_slice != None and type(right_slice.start) == Literal:
+                    if right_slice.start.val < 0:
+                        right_ofs = -right_slice.start.val
+                        right_attr['slice_ofs'] = right_ofs
+                    else:
+                        right_ofs = 0
+                else:
+                    right_ofs = 0
+
+                pre_loop = Loop(0, size[level], 1, [])
+                loop_ofs = max(left_ofs, right_ofs)
+                if loop_ofs > 0:
+                    pre_loop.attr['loop_ofs'] = loop_ofs
+
+                if level < left_levels:
+                    lhs = bind(lhs, pre_loop.iterate, left_attr)
+                    node.input_orders[0].append((level, pre_loop))
+                if level < right_levels:
+                    rhs = bind(rhs, pre_loop.iterate, right_attr)
+                    node.input_orders[1].append((level, pre_loop))
+                res = bind(res, pre_loop.iterate)
+                node.output_order.append((level, pre_loop))
+                ir.append(pre_loop)
+                ir = pre_loop.body
+
+            ir.append(Assignment(res, Expr(lhs, rhs, op)))
 
         elif node.op_type in math_op:
             node.operators[0]._gen_ir()
@@ -368,21 +350,26 @@ def gen_ir(node):
             nparams = len(inspect.signature(func).parameters)
 
             # generate IR for the input items of func
-            for i in range(2, 2+2*nparams):
-                node.operators[i]._gen_ir()
+            for i in range(1, 2+2*nparams):
+                if node.operators[i] != None:
+                    node.operators[i]._gen_ir()
 
-            primary_axis = node.operators[2+nparams].eval.val
+            primary_axis = node.operators[1+nparams].eval.val
 
             # this is the loop that iterates over the axis of the primary (first) tensor input
-            outer_loop = Loop(0, node.operators[2].eval.size[primary_axis], 1, [])
+            outer_loop = Loop(0, node.operators[1].eval.size[primary_axis], 1, [])
 
             for i in range(nparams):
                 item = node.operators[2+2*nparams+i]
-                item.eval = node.operators[2+i].eval
-                axis = node.operators[2+nparams+i].eval.val
-                for i in range(axis):
+                item.eval = node.operators[1+i].eval
+                axis = node.operators[1+nparams+i].eval.val
+                n = num_unbind(item.eval)
+                for i in range(n, axis):
                     item.eval = Indexing(item.eval, Literal(-1, 'int'))
-                item.eval = Indexing(item.eval, outer_loop.iterate)
+                if axis > n:
+                    item.eval = Indexing(item.eval, outer_loop.iterate)
+                else:
+                    item.eval = bind(item.eval, outer_loop.iterate)
 
             # since input items of func has been generated and indexed, we can generate the IR of the func
             ret = node.operators[-1]
@@ -410,7 +397,7 @@ def gen_ir(node):
             if len(ret_compute) == 0:
                 ret_compute.append(Assignment(ret.eval, ret.eval))
 
-            # the compute of func are added in the outer_loop
+            # the computation of func are added in the outer_loop
             outer_loop.body.extend(ret_compute)
             size = helpers.get_ir_of_size(node._size())
             node.eval = Ndarray(ret.eval.dtype, size)
@@ -418,15 +405,18 @@ def gen_ir(node):
             node.decl.extend(ret_decl)
             node.compute = [outer_loop]
 
-            out_ofs = node.operators[1]
+            out_ofs = node.operators[1 + 2*nparams]
             res = bind(node.eval, outer_loop.iterate) if out_ofs == None else node.eval
             replace_output(node.compute, ret.eval, res)
             # if there is an offset for output storage
             if out_ofs != None:
                 # the last statement in the func IR is always a Loop that writes the result to ret.eval (which has been replaced by res)
                 assert type(ret.compute[-1]) == Loop
+                l = ret.compute[-1]
+                while (type(l) == Loop):
+                    l = l.body[-1]
                 # But the index to the node.eval in res is incorrect, we need to change it according to the offset
-                rebind_iterate(ret.compute[-1].body[-1].lhs, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
+                rebind_iterate(l.lhs, ret.compute[-1].iterate, Expr(Indexing(out_ofs.eval, outer_loop.iterate), ret.compute[-1].iterate, '+'))
             # ret.eval is removed from the decl
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
@@ -438,8 +428,8 @@ def gen_ir(node):
 
 
         elif node.op_type == 'reduce':
-            node.operators[0]._gen_ir()
-            node.operators[3]._gen_ir()
+            node.operators[0]._gen_ir()  # input data
+            node.operators[3]._gen_ir()  # axis
             axis = node.operators[3].eval.val
 
             size = helpers.get_ir_of_size(node._size())
@@ -448,10 +438,10 @@ def gen_ir(node):
             else:
                 node.eval = Scalar(node.dtype)
 
+
             node.operators[2]._gen_ir() # init
             # the decl of node.eval should be added to the init
             node.operators[2].decl.append(Decl(node.eval))
-
 
             outer_loop = Loop(0, node.operators[0].eval.size[axis], 1, [])
 
@@ -480,7 +470,7 @@ def gen_ir(node):
                 rebind_iterate(init, node.operators[2].output_order[i][1].iterate, ret.output_order[i][1].iterate)
                 node.output_order.append((i, ret.output_order[i][1]))
             compute.extend(init)
-            node.operators[2].valid = False
+            node.operators[2].compute.clear()
             compute.append(outer_loop)
 
             def action(node, res):

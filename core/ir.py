@@ -1,5 +1,6 @@
 class IR:
     def __init__(self):
+        self.attr = {}
         # astnode tracks the location of this IR in the AST
         self.astnode = None
 

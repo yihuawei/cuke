@@ -6,8 +6,7 @@ import batch
 import cset
 import random
 import string
-
-
+from codegen.oob import lower_bound_padding
 
 def to_string(ir):
     match ir.__class__.__name__:
@@ -113,12 +112,14 @@ def gen_cpp(ast, ir):
     t = helpers.Traversal(action)
     ir.extend(t(ast))
 
-def print_cpp(ast):
+def print_cpp(asg):
     ir = []
-    gen_cpp(ast, ir)
+    lower_bound_padding(asg)
+
+    gen_cpp(asg, ir)
 
 
-    args = helpers.get_input_nodes(ast)
+    args = helpers.get_input_nodes(asg)
     args = ', '.join([f'torch::Tensor obj_{a}' if type(args[a]) == Tensor else f'{args[a].dtype} {a}' for a in args])
 
     code = ''
@@ -127,16 +128,16 @@ def print_cpp(ast):
             code += to_string(d)
 
 
-    if type(ast.eval) == Scalar:
-        rtype = ast.dtype
-        code += f'return {ast.eval.name()};\n'
-    elif type(ast.eval) == Ndarray:
+    if type(asg.eval) == Scalar:
+        rtype = asg.dtype
+        code += f'return {asg.eval.name()};\n'
+    elif type(asg.eval) == Ndarray:
         rtype = 'torch::Tensor'
-        code += f'return obj_{ast.eval.name()};\n'
+        code += f'return obj_{asg.eval.name()};\n'
     else:
-        raise TypeError('wrong output type', ast.eval)
+        raise TypeError('wrong output type', asg.eval)
 
     with open('codegen/cpp_template.cpp', 'r') as f:
         c_code = f.read()
-        c_code = c_code.replace('RTYPE', rtype).replace('FNAME', ast.name[:24]+ ''.join(random.choices(string.ascii_lowercase, k=8))).replace('ARGS', args).replace('CODE', code)
+        c_code = c_code.replace('RTYPE', rtype).replace('FNAME', asg.name[:24] + ''.join(random.choices(string.ascii_lowercase, k=8))).replace('ARGS', args).replace('CODE', code)
     return c_code

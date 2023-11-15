@@ -21,7 +21,7 @@ class Encoder(Tensor):
         fix_size = []
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])
-        super().__init__(name, ref_size, 'float', fix_size)
+        super().__init__(name, ref_size, 'int', fix_size)
 
     def _gen_ir(self):
         return compression.asg2ir.gen_ir(self)

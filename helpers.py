@@ -1,10 +1,5 @@
-import matplotlib.pyplot as plt
-
 import compression.asg
-from core.asg import *
-from core.ir import *
 from cset.ast2ir import *
-import networkx as nx
 
 class Traversal:
 
@@ -91,17 +86,3 @@ def get_ir_of_size(size):
         ir_size.append(s.eval)
     return ir_size
 
-# def plot_ast(ast):
-#     graph = nx.DiGraph()
-#     def action(node, res):
-#         if isinstance(node, ASTNode):
-#             for parent in node.ref_by:
-#                 res.append((parent.name[:5], node.name[:5]))
-#
-#     t = Traversal(action)
-#
-#     graph.add_edges_from(t(ast))
-#     plt.tight_layout()
-#     nx.planar_layout(graph)
-#     nx.draw_networkx(graph, arrows=True)
-#     plt.show()

@@ -23,7 +23,7 @@ def rebind_iterate(ir, old, new):
     elif type(ir) == Indexing:
         rebind_iterate(ir.dobject, old, new)
         if type(ir.idx) in (Scalar, Literal):
-            if ir.idx == old:
+            if ir.idx.dobject_id == old.dobject_id:
                 ir.idx = new
         else:
             rebind_iterate(ir.idx, old, new)
