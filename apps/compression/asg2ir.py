@@ -1,5 +1,4 @@
 import helpers
-from compression.asg import *
 from core.asg import *
 from core.ir import *
 

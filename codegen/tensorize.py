@@ -1,6 +1,6 @@
 from core.ir import *
 from core.asg import *
-from core.opt.reorder import rebind_iterate
+from opt.reorder import rebind_iterate
 import helpers
 
 

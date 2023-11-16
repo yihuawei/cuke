@@ -1,6 +1,6 @@
 from core.ir import *
 from core.asg import *
-from core.opt.reorder import rebind_iterate
+from opt.reorder import rebind_iterate
 import helpers
 
 def _is_oob_indexing(ir, it, ofs):
@@ -11,6 +11,7 @@ def _is_oob_indexing(ir, it, ofs):
             return True
     return False
 
+# TODO: unified the implementation of replace
 def _replace_oobindexing_with_padding(ir, it, ofs, val):
     if type(ir) == list or type(ir) == tuple:
         for l in ir:

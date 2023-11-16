@@ -1,5 +1,6 @@
-import compression.asg
 from cset.ast2ir import *
+from apps import compression
+from core.asg import *
 
 class Traversal:
 
@@ -104,3 +105,11 @@ def collect_ir(ast, ir):
 
     t = Traversal(action)
     ir.extend(t(ast))
+
+
+def new_op(func):
+    def wrapper_func(*args, **kwargs):
+        res = func(*args, **kwargs)
+        res.attr[func.__name__] = True
+        return res
+    return wrapper_func

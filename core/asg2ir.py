@@ -1,10 +1,7 @@
-import copy
-
-import codegen.cpu
 from core.asg import *
 from core.ir import *
 import helpers
-from core.opt.reorder import rebind_iterate
+from opt.reorder import rebind_iterate
 
 
 def num_unbind(index):
@@ -78,6 +75,74 @@ def replace_output(ir, old, new):
             ir.dobject = new
         else:
             replace_output(ir.dobject, old, new)
+
+
+# TODO: unified the implementation of replace
+def replace_all(ir, old, new):
+    if type(ir) == list or type(ir) == tuple:
+        for l in ir:
+            replace_all(l, old, new)
+    elif type(ir) == Loop:
+        if ir.start == old:
+            ir.start = new
+        else:
+            replace_all(ir.start, old, new)
+        if ir.end == old:
+            ir.end = new
+        else:
+            replace_all(ir.end, old, new)
+        if ir.step == old:
+            ir.step = new
+        else:
+            replace_all(ir.step, old, new)
+        replace_all(ir.body, old, new)
+    elif type(ir) == Expr:
+        if ir.left == old:
+            ir.left = new
+        else:
+            replace_all(ir.left, old, new)
+        if ir.right == old:
+            ir.right = new
+        else:
+            replace_all(ir.right, old, new)
+    elif type(ir) == Assignment:
+        if ir.rhs == old:
+            ir.rhs = new
+        else:
+            replace_all(ir.rhs, old, new)
+        if ir.lhs == old:
+            ir.lhs = new
+        else:
+            replace_all(ir.lhs, old, new)
+    elif type(ir) == Ndarray:
+        replace_all(ir.size, old, new)
+    elif type(ir) == Indexing:
+        if ir.dobject == old:
+            ir.dobject = new
+        else:
+            replace_all(ir.dobject, old, new)
+        if ir.idx == old:
+            ir.idx = new
+        else:
+            replace_all(ir.idx, old, new)
+    elif type(ir) == Slice:
+        if ir.start == old:
+            ir.start = new
+        else:
+            replace_all(ir.start, old, new)
+        if ir.stop == old:
+            ir.stop = new
+        else:
+            replace_all(ir.stop, old, new)
+        if ir.step == old:
+            ir.step = new
+        else:
+            replace_all(ir.step, old, new)
+    elif type(ir) == Math:
+        if ir.val == old:
+            ir.val = new
+        else:
+            replace_all(ir.val, old, new)
 
 def has_same_iteration_space(l1, l2):
     return has_same_value(l1.start, l2.start) and has_same_value(l1.end, l2.end) and has_same_value(l1.step, l2.step)
@@ -253,7 +318,8 @@ def gen_ir(node):
 
         elif node.op_type == 'einsum':
             node.operators[0]._gen_ir()
-            node.operators[1]._gen_ir()
+            if node.operators[1] != None:
+                node.operators[1]._gen_ir()
             node.input_orders[0] = []
             node.input_orders[1] = []
 
@@ -263,28 +329,47 @@ def gen_ir(node):
             all_indices = ''.join(sorted(set(input1 + input2)))
             all_loops = []
             mapping = {}
+
+            reduce_begins = len(output)
+
             for i in output:
                 pos1 = input1.find(i)
                 pos2 = input2.find(i)
                 if (pos1 >= 0 and pos2 < 0):
                     mapping[i] = len(all_loops)
-                    l = Loop(0, node.operators[0].eval.size[pos1], 1, [])
+                    l = Loop(0, node.operators[0].eval.ref_size(pos1), 1, [])
                     all_loops.append(l)
                     node.input_orders[0].append((len(node.input_orders[0]), l))
                 elif (pos1 < 0 and pos2 >= 0):
                     mapping[i] = len(all_loops)
-                    l = Loop(0, node.operators[1].eval.size[pos2], 1, [])
+                    l = Loop(0, node.operators[1].eval.ref_size(pos2), 1, [])
                     all_loops.append(l)
                     node.input_orders[1].append((len(node.input_orders[1]), l))
 
-            reduce_begins = len(all_loops)
 
-            for i in range(len(all_indices)):
-                pos1 = input1.find(all_indices[i])
-                pos2 = input2.find(all_indices[i])
+            for i in all_indices:
+                if i in output:
+                    continue
+                pos1 = input1.find(i)
+                pos2 = input2.find(i)
+                if (pos1 >= 0 and pos2 < 0):
+                    mapping[i] = len(all_loops)
+                    l = Loop(0, node.operators[0].eval.ref_size(pos1), 1, [])
+                    all_loops.append(l)
+                    node.input_orders[0].append((len(node.input_orders[0]), l))
+                elif (pos1 < 0 and pos2 >= 0):
+                    mapping[i] = len(all_loops)
+                    l = Loop(0, node.operators[1].eval.ref_size(pos2), 1, [])
+                    all_loops.append(l)
+                    node.input_orders[1].append((len(node.input_orders[1]), l))
+
+
+            for i in all_indices:
+                pos1 = input1.find(i)
+                pos2 = input2.find(i)
                 if pos1 >= 0 and pos2 >= 0:
-                    mapping[all_indices[i]] = len(all_loops)
-                    l = Loop(0, node.operators[0].eval.size[pos1], 1, [])
+                    mapping[i] = len(all_loops)
+                    l = Loop(0, node.operators[0].eval.ref_size(pos1), 1, [])
                     all_loops.append(l)
                     node.input_orders[0].append((len(node.input_orders[0]), l))
                     node.input_orders[1].append((len(node.input_orders[1]), l))
@@ -299,21 +384,31 @@ def gen_ir(node):
             for i in input1:
                 op1 = bind(op1, all_loops[mapping[i]].iterate)
 
-            op2 = node.operators[1].eval
-            for i in input2:
-                op2 = bind(op2, all_loops[mapping[i]].iterate)
+            if node.operators[1] != None:
+                op2 = node.operators[1].eval
+                for i in input2:
+                    op2 = bind(op2, all_loops[mapping[i]].iterate)
+            else:
+                op2 = None
 
             size = helpers.get_ir_of_size(node._size())
-            node.eval = Ndarray(node.dtype, size)
+            if len(size) > 0:
+                node.eval = Ndarray(node.dtype, size)
+            else:
+                node.eval = Scalar(node.dtype)
             node.decl = [Decl(node.eval)]
             res = node.eval
             for i in output:
                 res = bind(res, all_loops[mapping[i]].iterate)
 
-            if reduce_begins == len(all_loops):
-                body = Assignment(res, Expr(op1, op2, '*'))
+            if op2 != None:
+                expr = Expr(op1, op2, '*')
             else:
-                body = Assignment(res, Expr(op1, op2, '*'), '+')
+                expr = op1
+            if reduce_begins == len(all_loops):
+                body = Assignment(res, expr)
+            else:
+                body = Assignment(res, expr, '+')
             init = Assignment(res, 0)
             if reduce_begins == 0:
                 node.compute.append(init)
@@ -344,7 +439,6 @@ def gen_ir(node):
                 raise TypeError('incorrect index type!')
 
         elif node.op_type == 'apply':
-            #TODO: add input_orders for apply, reduce, and aggr
             func = node.operators[0]
             nparams = len(inspect.signature(func).parameters)
 
@@ -358,14 +452,16 @@ def gen_ir(node):
             # this is the loop that iterates over the axis of the primary (first) tensor input
             outer_loop = Loop(0, node.operators[1].eval.size[primary_axis], 1, [])
 
+            nn = []
             for i in range(nparams):
                 item = node.operators[2+2*nparams+i]
                 item.eval = node.operators[1+i].eval
                 axis = node.operators[1+nparams+i].eval.val
                 n = num_unbind(item.eval)
+                nn.append(n)
                 for i in range(n, axis):
                     item.eval = Indexing(item.eval, Literal(-1, 'int'))
-                if axis > n:
+                if axis >= n:
                     item.eval = Indexing(item.eval, outer_loop.iterate)
                 else:
                     item.eval = bind(item.eval, outer_loop.iterate)
@@ -373,6 +469,21 @@ def gen_ir(node):
             # since input items of func has been generated and indexed, we can generate the IR of the func
             ret = node.operators[-1]
             ret._gen_ir()
+
+            # get the input orders
+            for i in range(nparams):
+                n = nn[i]
+                l = node.input_orders[i]
+                if axis >= n:
+                    for j in range(axis):
+                        l.append((len(l), ret.input_orders[i][j][1]))
+                    l.append((len(l), outer_loop))
+                    for j in range(axis, len(ret.input_orders[i])):
+                        l.append((len(l), ret.input_orders[i][j][1]))
+                else:
+                    l.append((len(l), outer_loop))
+                    for j in range(len(ret.input_orders[i])):
+                        l.append((len(l), ret.input_orders[i][j][1]))
 
             def action(node, res):
                 if node.valid == True:
@@ -406,7 +517,7 @@ def gen_ir(node):
 
             out_ofs = node.operators[1 + 2*nparams]
             res = bind(node.eval, outer_loop.iterate) if out_ofs == None else node.eval
-            replace_output(node.compute, ret.eval, res)
+            replace_all(node.compute, ret.eval, res)
             # if there is an offset for output storage
             if out_ofs != None:
                 # the last statement in the func IR is always a Loop that writes the result to ret.eval (which has been replaced by res)
@@ -419,7 +530,6 @@ def gen_ir(node):
             # ret.eval is removed from the decl
             node.decl = [d for d in node.decl if d.dobject != ret.eval]
 
-            # TODO: need test for this
             node.output_order = [(0, outer_loop)]
             if hasattr(ret, 'output_order'):
                 for i in range(len(ret.output_order)):
@@ -427,6 +537,7 @@ def gen_ir(node):
 
 
         elif node.op_type == 'reduce':
+            #TODO: add input_orders for reduce, and aggr
             node.operators[0]._gen_ir()  # input data
             node.operators[3]._gen_ir()  # axis
             axis = node.operators[3].eval.val
@@ -448,9 +559,13 @@ def gen_ir(node):
             item2 = node.operators[5]
             item1.eval = node.eval
             item2.eval = node.operators[0].eval
-            for i in range(axis):
+            n = num_unbind(item2.eval)
+            for i in range(n, axis):
                 item2.eval = Indexing(item2.eval, Literal(-1, 'int'))
-            item2.eval = Indexing(item2.eval, outer_loop.iterate)
+            if axis > n:
+                item2.eval = Indexing(item2.eval, outer_loop.iterate)
+            else:
+                item2.eval = bind(item2.eval, outer_loop.iterate)
             item2.decl = []
             item1.decl = []
 
@@ -474,10 +589,7 @@ def gen_ir(node):
 
             def action(node, res):
                 if node.valid == True:
-                    if type(node) == Var or type(node) == Tensor:
-                        res.extend(node.decl)
-                        node.valid = False
-                    elif type(node) == TensorOp:
+                    if isinstance(node, Tensor):
                         res.extend(node.decl)
                         res.extend(node.compute)
                         node.valid = False

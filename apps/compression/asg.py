@@ -1,5 +1,4 @@
 from core.asg import *
-import compression
 
 
 def truncate(data, nbits):
@@ -24,6 +23,6 @@ class Encoder(Tensor):
         super().__init__(name, ref_size, 'int', fix_size)
 
     def _gen_ir(self):
-        return compression.asg2ir.gen_ir(self)
+        return apps.compression.asg2ir.gen_ir(self)
 
 

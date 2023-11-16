@@ -2,7 +2,7 @@ from core.asg import *
 from core.ir import *
 import codegen
 import helpers
-from core.opt.reorder import rebind_iterate
+from opt.reorder import rebind_iterate
 
 def get_obj(ir: (Indexing, Scalar)):
     obj = ir
@@ -10,59 +10,59 @@ def get_obj(ir: (Indexing, Scalar)):
         obj = obj.dobject
     return obj
 
-def replace_index_with_scalar(ir, old, new):
+def replace_arrindex_with_scalar(ir, old, new):
     if type(ir) == list or type(ir) == tuple:
         for l in ir:
-            replace_index_with_scalar(l, old, new)
+            replace_arrindex_with_scalar(l, old, new)
     elif type(ir) == Loop:
-        replace_index_with_scalar(ir.body, old, new)
+        replace_arrindex_with_scalar(ir.body, old, new)
     elif type(ir) == Expr:
         if type(ir.left) in (Indexing, Scalar):
             obj = get_obj(ir.left)
             if obj == old:
                 ir.left = new
         else:
-            replace_index_with_scalar(ir.left, old, new)
+            replace_arrindex_with_scalar(ir.left, old, new)
         if type(ir.right) in (Indexing, Scalar):
             obj = get_obj(ir.right)
             if obj == old:
                 ir.right = new
         else:
-            replace_index_with_scalar(ir.right, old, new)
+            replace_arrindex_with_scalar(ir.right, old, new)
     elif type(ir) == Assignment:
         if type(ir.lhs) in (Indexing, Scalar):
             obj = get_obj(ir.lhs)
             if obj == old:
                 ir.lhs = new
         else:
-            replace_index_with_scalar(ir.lhs, old, new)
+            replace_arrindex_with_scalar(ir.lhs, old, new)
         if type(ir.rhs) in (Indexing, Scalar):
             obj = get_obj(ir.rhs)
             if obj == old:
                 ir.rhs = new
         else:
-            replace_index_with_scalar(ir.rhs, old, new)
+            replace_arrindex_with_scalar(ir.rhs, old, new)
     elif type(ir) == Slice:
         if type(ir.start) in (Indexing, Scalar):
             obj = get_obj(ir.start)
             if obj == old:
                 ir.start = new
         else:
-            replace_index_with_scalar(ir.start, old, new)
+            replace_arrindex_with_scalar(ir.start, old, new)
 
         if type(ir.stop) in (Indexing, Scalar):
             obj = get_obj(ir.stop)
             if obj == old:
                 ir.stop = new
         else:
-            replace_index_with_scalar(ir.stop, old, new)
+            replace_arrindex_with_scalar(ir.stop, old, new)
 
         if type(ir.step) in (Indexing, Scalar):
             obj = get_obj(ir.step)
             if obj == old:
                 ir.step = new
         else:
-            replace_index_with_scalar(ir.step, old, new)
+            replace_arrindex_with_scalar(ir.step, old, new)
 
     elif type(ir) == Math:
         if type(ir.val) in (Indexing, Scalar):
@@ -70,7 +70,7 @@ def replace_index_with_scalar(ir, old, new):
             if obj == old:
                 ir.val = new
         else:
-            replace_index_with_scalar(ir.val, old, new)
+            replace_arrindex_with_scalar(ir.val, old, new)
 
 
 def fuse(node, fusion_type = ['basic']):
@@ -93,7 +93,7 @@ def fuse(node, fusion_type = ['basic']):
                             elif node.operators[0].op_type in ['einsum', 'reduce']:
                                 new_term = Scalar(node.operators[0].eval.dtype)
                                 node.decl.append(Decl(new_term))
-                                replace_index_with_scalar(node.operators[0].output_order[-1][1].body, node.operators[0].eval, new_term)
+                                replace_arrindex_with_scalar(node.operators[0].output_order[-1][1].body, node.operators[0].eval, new_term)
                                 node.input_orders[0][-1][1].body[0:0] = node.operators[0].output_order[-1][1].body[:]
                             if new_term != None:
                                 if node.op_type in math_op:
@@ -125,7 +125,7 @@ def fuse(node, fusion_type = ['basic']):
                                 elif node.operators[1].op_type in ['einsum', 'reduce']:
                                     new_term = Scalar(node.operators[1].eval.dtype)
                                     node.decl.append(Decl(new_term))
-                                    replace_index_with_scalar(node.operators[1].output_order[-1][1].body, node.operators[1].eval, new_term)
+                                    replace_arrindex_with_scalar(node.operators[1].output_order[-1][1].body, node.operators[1].eval, new_term)
                                     node.input_orders[1][-1][1].body[-1:-1] = node.operators[1].output_order[-1][1].body[:]
                                 if new_term != None:
                                     if node.op_type in math_op:

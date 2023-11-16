@@ -107,7 +107,7 @@ class BatchOp(Batch):
 
         name = f'{op_type}_' + '_'.join([op.name if hasattr(op, 'name') else '' for op in self.operators])
 
-        if op_type in core.ast.arith_op:
+        if op_type in core.asg.arith_op:
             match op_type:
                 case 'add':
                     res = self.operators[0].base + self.operators[1].base

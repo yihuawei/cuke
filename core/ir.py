@@ -21,6 +21,9 @@ class DOject(IR):
         self.dtype = dtype
         self.size = size
 
+    def ref_size(self, axis):
+        return self.size[axis]
+
 
 class Expr(IR):
     def __init__(self, left, right, op: str):
@@ -121,6 +124,9 @@ class Indexing(DOject):
             self.ref_point = dobject.ref_point + len(idx.size)
 
         super().__init__(dobject.dtype, size)
+
+    def ref_size(self, axis):
+        return self.size[axis+self.ref_point]
 
 
 class Decl(IR):

@@ -1,13 +1,12 @@
-import compression.asg
-from core.asg2ir import *
 from cset.ast2ir import *
 import helpers
-import batch
-import cset
 import random
 import string
 from codegen.oob import lower_bound_padding
 from codegen.tensorize import tensorize
+from core.asg import *
+from core.ir import *
+
 
 indent_width = 4
 

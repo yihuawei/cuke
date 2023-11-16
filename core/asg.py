@@ -138,6 +138,7 @@ class ASTNode:
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
         self.valid = True
+        self.attr = {}
 
 class Tensor(ASTNode):
     def __init__(self, name, size:list|tuple, dtype='float', fix_size=[], is_arg=True):
@@ -198,9 +199,13 @@ class Tensor(ASTNode):
             raise TypeError('reduce must use a callable function')
 
     def sum(self, axis=0):
-        func = lambda x, y: x + y
-        init = lambda x: setval(x, 0)
-        return self.reduce(func, init, axis)
+        s1 = ''
+        rs = ''
+        for i in range(len(self._size())):
+            s1 += chr(ord('i')+i)
+            if i != axis:
+                rs += chr(ord('i')+i)
+        return einsum(f'{s1},->{rs}', self, None)
 
     def max(self, axis=0):
         func = lambda x, y: bigger(x, y)
@@ -303,10 +308,24 @@ class Const(Var):
         # slice is considered constant because once the slice is created its start, stop, step cannot be reassigned
         # however, start, stop, step themselves can be variables
         if dtype == 'slice':
-            assert type(val.start) == int or is_int_var(val.start)
-            assert type(val.stop) == int or is_int_var(val.stop)
-            assert type(val.step) == int or is_int_var(val.step)
-        self.val = val
+            if type(val.start) == int:
+                start = Const(val.start, 'int')
+            else:
+                start = val.start
+            if type(val.stop) == int:
+                stop = Const(val.stop, 'int')
+            else:
+                stop = val.stop
+            if type(val.step) == int:
+                step = Const(val.step, 'int')
+            else:
+                step = val.step
+            assert is_int_var(start)
+            assert is_int_var(stop)
+            assert is_int_var(step)
+            self.val = slice(start, stop, step)
+        else:
+            self.val = val
 
 
 def einsum(exp: str, tensor1, tensor2):
@@ -348,7 +367,10 @@ class TensorOp(Tensor):
             inputs, output = exp.split('->')
             input1, input2 = inputs.split(',')
             op1_size = self.operators[0]._size()
-            op2_size = self.operators[1]._size()
+            if self.operators[1] != None:
+                op2_size = self.operators[1]._size()
+            else:
+                op2_size = []
             ref_size = []
             fix_size = []
             for i in output:
