@@ -125,10 +125,10 @@ def gen_cuda(ast, cpu_ir, gpu_ir):
             elif type(node) == batch.ast.BatchOp:
                 res.extend(node.decl)
                 res.extend(node.compute)
-    t = helpers.Traversal(action_cpu)
+    t = helpers.ASGTraversal(action_cpu)
     cpu_ir.extend(t(ast))
 
-    t = helpers.Traversal(action_cuda)
+    t = helpers.ASGTraversal(action_cuda)
     gpu_ir.extend(t(ast))
 
 def print_cuda(ast):

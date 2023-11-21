@@ -1,9 +1,6 @@
 class IR:
     def __init__(self):
         self.attr = {}
-        # astnode tracks the location of this IR in the AST
-        self.astnode = None
-
 
 class Code(IR):
     def __init__(self, code, keywords: dict):
@@ -11,13 +8,13 @@ class Code(IR):
         self.keywords = keywords
 
 
-class DOject(IR):
+class DObject(IR):
     nobjects = 0
 
     def __init__(self, dtype: str, size: (list, tuple)):
         super().__init__()
-        self.dobject_id = DOject.nobjects
-        DOject.nobjects += 1
+        self.dobject_id = DObject.nobjects
+        DObject.nobjects += 1
         self.dtype = dtype
         self.size = size
 
@@ -46,8 +43,9 @@ class Assignment(IR):
 
 class Loop(IR):
     loop_id = 0
+    parallel_types = ['naive', 'reduction', 'scan']
 
-    def __init__(self, start, end, step, body: list):
+    def __init__(self, start, end, step, body: list, ptype='naive'):
         super().__init__()
         self.lid = Loop.loop_id
         Loop.loop_id += 1
@@ -56,9 +54,10 @@ class Loop(IR):
         self.step = step
         self.body = body
         self.iterate = Scalar('int', f'_l{self.lid}')
+        self.attr['ptype'] = ptype
+        self.iterate.attr['loop'] = self
 
-
-class Scalar(DOject):
+class Scalar(DObject):
     def __init__(self, dtype: str, name: str = None, is_arg = False):
         super().__init__(dtype, [])
         self.__name__ = name if name else f's{self.dobject_id}'
@@ -67,7 +66,7 @@ class Scalar(DOject):
         return self.__name__
 
 
-class Literal(DOject):
+class Literal(DObject):
     def __init__(self, val: (int, float), dtype: str):
         super().__init__(dtype, [])
         self.val = val
@@ -83,7 +82,7 @@ class Slice(IR):
         self.size = [Expr(Expr(self.stop, self.start, '-'), self.step, '/')]
 
 
-class Ndarray(DOject):
+class Ndarray(DObject):
     def __init__(self, dtype: str, size: tuple, name: str = None, is_arg = False):
         super().__init__(dtype, size)
         self.__name__ = name if name else f'arr{self.dobject_id}'
@@ -101,7 +100,7 @@ class Math(IR):
         self.val = val
         self.type = type
 
-class Indexing(DOject):
+class Indexing(DObject):
     def __init__(self, dobject, idx):
         assert dobject != None and type(dobject) in (Slice, Ndarray, Indexing)
         assert idx != None and type(idx) in (Scalar, Literal, Indexing, Expr)

@@ -11,6 +11,10 @@ cmp_op = ['bigger', 'smaller']
 func_op = ['apply', 'reduce', 'aggr']
 other_op = ['setval', 'einsum', 'index']
 
+binary_elw = list(arith_op.keys()) + cmp_op
+unary_elw = math_op
+elementwise_op = binary_elw + unary_elw
+
 
 def is_int_var(v):
     return isinstance(v, Tensor) and v.dtype == 'int' and len(v.ref_size) == 0
@@ -137,7 +141,6 @@ class ASTNode:
         self.ref_by = []
         self.id = ASTNode.nuniq
         ASTNode.nuniq += 1
-        self.valid = True
         self.attr = {}
 
 class Tensor(ASTNode):

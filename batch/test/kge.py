@@ -24,9 +24,9 @@ def transE():
     code = codegen.cpu.print_cpp(res._gen_ir())
 
     # ast = res._gen_ir()
-    # opt.fusion_rules.fuse_operators(ast)
-    # opt.parallelism.parallel(ast)
-    # opt.smem.add_smem(ast)
+    # transform.fusion_rules.fuse_operators(ast)
+    # transform.parallelism.parallel(ast)
+    # transform.smem.add_smem(ast)
     # code = codegen.gpu.print_cuda(ast)
     print(code)
     # h = torch.randint(0, 9999, (4096, )).cuda(0)
@@ -190,7 +190,7 @@ def RESCAL():
     tile_loop(ast)
     parallel(ast)
     add_smem(ast)
-    # traversal call funcs to opt ir
+    # traversal call funcs to transform ir
     # code = codegen.cpu.print_cpp(ast)
     code = codegen.gpu.print_cuda(ast)
     print(code)

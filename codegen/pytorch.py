@@ -71,7 +71,7 @@ def print_pytorch(asg):
 
     code += ' ' * indent + f'return {asg.eval.name()}\n'
 
-    with open('codegen/pytorch_template.py', 'r') as f:
+    with open('codegen/pytorch_template.txt', 'r') as f:
         t_code = f.read()
         t_code = t_code.replace('FNAME', asg.name[:24] + ''.join(random.choices(string.ascii_lowercase, k=8))).replace('ARGS', args).replace('CODE', code)
         return t_code

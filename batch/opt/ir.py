@@ -82,7 +82,7 @@ class IF(IR):
         self.true_var = true_var
         self.false_var = false_var
 
-class Pointer(DOject):
+class Pointer(DObject):
     def __init__(self, dtype, size):
         super().__init__(dtype, size)
         self.__name__ = f'ptr{self.dobject_id}'

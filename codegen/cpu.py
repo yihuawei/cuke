@@ -1,8 +1,9 @@
 from cset.ast2ir import *
-import helpers
+from helpers import collect_ir, get_input_nodes
 import random
 import string
 from codegen.oob import lower_bound_padding
+import os
 
 
 def to_string(ir):
@@ -20,7 +21,10 @@ def to_string(ir):
             else:
                 return f"{to_string(ir.lhs)} {ir.op}= {to_string(ir.rhs)};\n"
         case 'Loop':
-            code = f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
+            code = ''
+            if ir.attr['ptype'] == 'naive' and 'plevel' in ir.attr and 'nprocs' in ir.attr:
+                code += f"#pragma omp parallel for num_threads({ir.attr['nprocs'][ir.attr['plevel']][0]})\n"
+            code += f"for (int {to_string(ir.iterate)} = {to_string(ir.start)}; {to_string(ir.iterate)} < {to_string(ir.end)}; {to_string(ir.iterate)} += {to_string(ir.step)}) {{\n"
             for e in ir.body:
                 if e:
                     code += to_string(e)
@@ -90,10 +94,8 @@ def print_cpp(asg):
     ir = []
     lower_bound_padding(asg)
 
-    helpers.collect_ir(asg, ir)
-
-
-    args = helpers.get_input_nodes(asg)
+    collect_ir(asg, ir)
+    args = get_input_nodes(asg)
     args = ', '.join([f'torch::Tensor obj_{a}' if type(args[a]) == Tensor else f'{args[a].dtype} {a}' for a in args])
 
     code = ''
@@ -111,7 +113,7 @@ def print_cpp(asg):
     else:
         raise TypeError('wrong output type', asg.eval)
 
-    with open('codegen/cpp_template.cpp', 'r') as f:
+    with open(f'{os.path.dirname(__file__)}/cpp_template.txt', 'r') as f:
         c_code = f.read()
         c_code = c_code.replace('RTYPE', rtype).replace('FNAME', asg.name[:24] + ''.join(random.choices(string.ascii_lowercase, k=8))).replace('ARGS', args).replace('CODE', code)
     return c_code

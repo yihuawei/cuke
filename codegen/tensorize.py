@@ -1,6 +1,6 @@
 from core.ir import *
 from core.asg import *
-from opt.reorder import rebind_iterate
+from transform.interchange import rebind_iterate
 import helpers
 
 
@@ -104,7 +104,7 @@ def _tensorize_loops(scope):
 
 def tensorize(asg):
     def action(node, res):
-        if node.valid == True and type(node) == TensorOp:
+        if type(node) == TensorOp:
             res.append(node.compute)
 
     t = helpers.Traversal(action)

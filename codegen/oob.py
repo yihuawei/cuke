@@ -1,6 +1,6 @@
 from core.ir import *
 from core.asg import *
-from opt.reorder import rebind_iterate
+from helpers import rebind_iterate
 import helpers
 
 def _is_oob_indexing(ir, it, ofs):
@@ -87,10 +87,10 @@ def _resolve_loops(scope):
 
 def lower_bound_padding(asg):
     def action(node, res):
-        if node.valid == True and type(node) == TensorOp and node.op_type in list(arith_op.keys()) + ['setval']:
+        if type(node) == TensorOp and node.op_type in list(arith_op.keys()) + ['setval']:
             res.append(node.compute)
 
-    t = helpers.Traversal(action)
+    t = helpers.ASGTraversal(action)
     ir = t(asg)
     for l in ir:
         _resolve_loops(l)

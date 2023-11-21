@@ -3,7 +3,7 @@ import run
 from core.asg2ir import *
 import codegen
 import helpers
-from opt import fuse
+from transform import fuse
 
 def test1():
     def func():
@@ -401,7 +401,7 @@ def test_math1():
 
 def test_math2():
     input = Tensor('input', (50, 32), dtype='float')
-    input = input.setval(0)
+    input = setval(input, 0)
     res = input[0].abs()
     code = codegen.cpu.print_cpp(gen_ir(res))
     print(code)
@@ -956,11 +956,11 @@ if __name__ == "__main__":
     # some slicing test
     # test15()
     # test16()
-    test17()
-    test18()
-    test19()
-    test20()
-    test21()
+    # test17()
+    # test18()
+    # test19()
+    # test20()
+    # test21()
     # compression()
     # test_math1()
     # test_math2()
@@ -971,8 +971,8 @@ if __name__ == "__main__":
     # apply_test5()
     # apply_test6()
     # apply_test7()
-    # apply_test8()
-    # apply_test9()
+    apply_test8()
+    apply_test9()
     # apply_test10()
     # reduce_test1()
     # reduce_test2()

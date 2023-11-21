@@ -2,7 +2,6 @@ from cset.ast import *
 from cset.ir import *
 from core.asg2ir import *
 import helpers
-import codegen
 
 # if input_fun:
 #     # outer_loop.body.extend([Assignment(ret.eval, 0)])
@@ -46,7 +45,7 @@ def ExtractTensorIR(ret):
             # node.decl.clear()
             # node.compute.clear()
 
-    t = helpers.Traversal(action)
+    t = helpers.ASGTraversal(action)
     ret_ir = t(ret)
     return ret_ir
 
@@ -100,7 +99,7 @@ def _extend_ast(callback_func, item):
                 res.extend(node.compute)
                 node.valid = False
 
-    t = helpers.Traversal(action)
+    t = helpers.ASGTraversal(action)
     ret_ir = t(ret)
     ret_decl = []
     ret_compute = []
