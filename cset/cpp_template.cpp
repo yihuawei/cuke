@@ -1,9 +1,5 @@
 #include <torch/extension.h>
 
-// bool BinarySearch(torch::Tensor arr, int start, int end, int target){
-//     return true;
-// }
-
 bool BinarySearch(int& arr, int start, int end, int target){
     int* nums = &arr;
 

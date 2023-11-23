@@ -1,6 +1,7 @@
 from apps import compression
 from core.asg import *
 from core.ir import *
+from cset.ast import *
 
 class ASGTraversal:
 
@@ -51,6 +52,17 @@ class ASGTraversal:
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)
+        #cset extension
+        elif type(node) == Set:
+            self._post_traverse(node.nelem, visited, res)
+            self._post_traverse(node.storage, visited, res)
+            self.action(node, res)
+        elif type(node) == SetOp:
+            for c in node.operators:
+                self._post_traverse(c, visited, res)
+            self._post_traverse(node.nelem, visited, res)
+            self._post_traverse(node.storage, visited, res)
+            self.action(node, res)
 
     def __call__(self, ast):
         visited = set()
@@ -78,7 +90,7 @@ def get_ir_of_size(size):
 def collect_ir(ast, ir):
     import batch
     def action(node, res):
-        if isinstance(node, Tensor):
+        if isinstance(node, (Tensor, Set)):
             res.extend(node.decl)
             res.extend(node.compute)
 

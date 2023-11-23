@@ -1,44 +1,5 @@
 from core.ir import *
 
-# class Intersect(IR):
-#     def __init__(self, first, first_size, second, second_size, res):
-#         self.first = first
-#         self.first_size = first_size
-#         self.second = second
-#         self.second_size = second_size
-#         self.res = res
-
-# class Filter(IR):
-#     filter_id = 0
-#     def __init__(self, input, output, condition, condition_body):
-#         self.input = input
-#         self.output = output
-#         self.condition = condition
-#         self.condition_body = condition_body
-#         self.res_size = Scalar('int', f'_f{self.fid}')
-#         self.fid = Filter.filter_id
-#         Filter.filter_id += 1
-
-# class Filter(IR):
-#     pass
-
-
-# for(i=start; i<end; i+=step){
-#     body
-#     if(condition){
-#         body
-#     }
-#     body
-# }
-
-
-class Condition(IR):
-    condition_id = 0
-    def __init__(self, condition, body):
-        self.condition = condition  #if(condition){ body;}
-        self.body = body
-        self.cid = Condition.condition_id
-        Condition.condition_id+=1
 
 class FilterLoop(IR):
     filter_id = 0
