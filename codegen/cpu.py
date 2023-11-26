@@ -85,7 +85,7 @@ def to_string(ir):
             return code
         case 'Not':
             return f"!{to_string(ir.dobject)}"
-        case 'Search':
+        case 'BinarySearch':
             code = f"BinarySearch({to_string(ir.dobject)}, {to_string(ir.start)}, {to_string(ir.end)}, {to_string(ir.item)})"
             return code
         case _:

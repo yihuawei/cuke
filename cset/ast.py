@@ -3,22 +3,17 @@ import cset
 # from cset.ast2ir import *
 
 class BinarySearch():
-    def __init__(self, target_set, reserse=True):
+    def __init__(self, target_set, negative=False):
         self.target_set = target_set
+        self.negative = negative
     def __call__(self, item):
-        return SetOp('binary_search', item, self.target_set)
-
-class MergeSearch():
-    def __init__(self, target_set):
-        self.target_set = target_set
-    def __call__(self, item):
-        return SetOp('merge_search', item, self.target_set)
+        return SetOp('binary_search', item, self.target_set, self.negative)
 
 class SmallerThan():
     def __init__(self, val):
         self.val = val
     def __call__(self, item):
-        return SetOp('smaller', item, self.val, )
+        return SetOp('smaller', item, self.val)
 
 class Edgefilter():
     def __init__(self, rowptr, threshold):
@@ -26,13 +21,19 @@ class Edgefilter():
         self.threshold = threshold
     def __call__(self, item):
         degree = self.rowptr[item[0]+1] - self.rowptr[item[0]]
-        return SetOp('smaller', degree, self.threshold)
+        return SetOp('smaller', self.threshold, degree)
+
+class MergeSearch():
+    def __init__(self, target_set):
+        self.target_set = target_set
+    def __call__(self, item):
+        return SetOp('merge_search', item, self.target_set)
 
 def PartialEdge(item):
-    return SetOp('smaller', item[0], item[1])
+    return SetOp('smaller', item[1], item[0])
 
 class Set(ASTNode):
-    capacity = 1000
+    capacity = 10000
     nelem_id = 0
 
     def __init__(self, storage):
@@ -54,39 +55,36 @@ class Set(ASTNode):
     def _gen_ir(self):
         return cset.ast2ir.gen_ir(self)
 
-    def apply(self, func, init=None, k_capacity=1000):
+    def apply(self, func, init=None, k_capacity=10000):
         if callable(func):
             op = SetOp('apply', self, func, init, **{'capacity': k_capacity})
             return op
         else:
             raise TypeError('must apply a callable function')
 
-    def filter(self, cond,  k_capacity=1000):
+    def filter(self, cond,  k_capacity=10000):
         if callable(cond):
             op = SetOp('filter', self, cond, **{'capacity': k_capacity})
             return op
         else:
             raise TypeError('must apply a callable condition')
     
-    def intersection(self, other, cond, k_capacity=1000):
+    def intersection(self, other, cond, k_capacity=10000):
         if callable(cond):
             op = SetOp('intersection', self, cond(other), **{'capacity': k_capacity})
             return op
         else:
             raise TypeError('must apply a callable condition')
     
-    def difference(self, other, cond,  k_capacity=1000):
+    def difference(self, other, cond,  k_capacity=10000):
         if callable(cond):
             op = SetOp('difference', self, cond(other), **{'capacity': k_capacity})
             return op
         else:
             raise TypeError('must apply a callable condition')
-
-    def __add__(self, other):
-        return SetOp('add', self, other)
-
-    def setval(self, val):
-        return SetOp('setval', self, val)
+    
+    def increment(self, val):
+        return SetOp('increment', self, val)
     
     def retval(self, val):
         return SetOp('retval', self, val)
@@ -95,7 +93,7 @@ class Set(ASTNode):
 class SetOp(Set):
     ids = {'apply': 0, 'filter':0, 'intersection':0, 'difference':0, \
             'binary_search':0, 'merge_search': 0, 'smaller':0, \
-            'add':0, 'setval':0, 'retval':0}
+            'add':0, 'setval':0, 'increment':0, 'retval':0}
 
     def __init__(self, op_type, *operators, **config):
         
@@ -131,7 +129,8 @@ class SetOp(Set):
                     self.operators[i] = Const(self.operators[i], type(self.operators[i]))
             super().__init__(Var(tensor_name, 'bool', False))
                 
-        elif op_type == 'add':
+        elif op_type == 'increment':
+            self.operators[1] = Const(self.operators[1], 'int')
             super().__init__(Var(tensor_name, 'int', False))
         
         elif op_type == 'setval' or op_type == 'retval':

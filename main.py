@@ -3,7 +3,7 @@ import os
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from test import examples
-from cset import examples as cset_examples
+from cset.app import subgraph_matching
 
 if __name__ == "__main__":
-    cset_examples.subgraph_matching(sys.argv[1])
+    subgraph_matching.binary_search(sys.argv[1])

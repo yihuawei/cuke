@@ -19,7 +19,7 @@ class FilterLoop(IR):
         self.cond = cond
         self.cond_body = cond_body
 
-class Search(IR):
+class BinarySearch(IR):
     search_id = 0
     def __init__(self, dobject, start, end, item):
         self.dobject = dobject
@@ -27,7 +27,7 @@ class Search(IR):
         self.end = end
         self.item = item
         # self.res = res
-        Search.search_id += 1
+        BinarySearch.search_id += 1
 
 class Not(IR):
     def __init__(self, dobject):

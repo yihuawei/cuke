@@ -44,14 +44,14 @@ class ASGTraversal:
             for c in node.operators:
                 self._post_traverse(c, visited, res)
             self.action(node, res)
-        elif type(node) == compression.asg.Encoder:
-            for s in node.fix_size:
-                self._post_traverse(s, visited, res)
-            for s in node.ref_size:
-                self._post_traverse(s, visited, res)
-            for c in node.operators:
-                self._post_traverse(c, visited, res)
-            self.action(node, res)
+        # elif type(node) == compression.asg.Encoder:
+        #     for s in node.fix_size:
+        #         self._post_traverse(s, visited, res)
+        #     for s in node.ref_size:
+        #         self._post_traverse(s, visited, res)
+        #     for c in node.operators:
+        #         self._post_traverse(c, visited, res)
+        #     self.action(node, res)
         #cset extension
         elif type(node) == Set:
             self._post_traverse(node.nelem, visited, res)

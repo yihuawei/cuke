@@ -101,7 +101,6 @@ def gen_ir(node):
             item.eval = bind(input_set.eval,  outer_loop.iterate)
 
             cond_compute = _gen_and_detach_ir(input_cond_ast)
-            # print(cond_compute)
             outer_loop.body.extend(cond_compute)
             outer_loop.cond = input_cond_ast.eval
 
@@ -128,7 +127,6 @@ def gen_ir(node):
             else:
                 outer_loop.cond_body.extend([Assignment(lhs, rhs), res_plus])
 
-            # node.decl.extend(cond_decl)
             node.compute = [res_init, outer_loop]
         
         elif node.op_type == 'intersection' or node.op_type == 'difference':
@@ -263,9 +261,14 @@ def gen_ir(node):
             item._gen_ir()
             input_set = node.operators[1]
             input_set._gen_ir()
+            negative = node.operators[2]
+            
             node.eval = Scalar(node.dtype)
             node.decl = [Decl(node.eval)]
-            node.compute = [Assignment(node.eval,  Search(bind(input_set.eval, 0), 0, input_set.nelem.eval, item.eval))]
+            if negative.val:
+                node.compute = [Assignment(node.eval,  Not(BinarySearch(bind(input_set.eval, 0), 0, input_set.nelem.eval, item.eval)))]
+            else:
+                node.compute = [Assignment(node.eval,  BinarySearch(bind(input_set.eval, 0), 0, input_set.nelem.eval, item.eval))]
        
         elif node.op_type == 'merge_search':
             input_set = node.operators[0]
@@ -274,8 +277,8 @@ def gen_ir(node):
             item._gen_ir()
         
         elif node.op_type == 'smaller':
-            val = node.operators[0]
-            item = node.operators[1]
+            val = node.operators[1]
+            item = node.operators[0]
             val._gen_ir()
             item._gen_ir()
 
@@ -284,28 +287,15 @@ def gen_ir(node):
             node.compute = [Assignment(node.eval ,Expr(Expr(val.eval, item.eval, '-'), 0, 'bigger'))]
             # node.compute = [Assignment(node.eval ,0)]
         
-        elif node.op_type == 'addone':
-            node.operators[0]._gen_ir()
-            node.eval = node.operators[0].storage.eval
-            node.compute = [Assignment(node.eval, 1, '+')]
-
-        elif node.op_type == 'nelem':
+        elif node.op_type == 'increment':
             input_set = node.operators[0]
+            val =  node.operators[1]
+            assert(type(input_set.storage)==Var)
             input_set._gen_ir()
-            node.eval = input_set.nelem[0].eval 
+            val._gen_ir()
 
-        elif node.op_type == 'sum':
-            input_set = node.operators[0]
-            input_storage = input_set.storage
-            input_set._gen_ir()
-            
-            node.eval = Scalar(node.dtype)
-            node.decl = [Decl(node.eval)]
-
-            sum_loop = Loop(0, input_set.nelem[0].eval, 1, [])
-            sum_loop.body.append(Assignment(node.eval, bind3(input_storage.eval, sum_loop.iterate), '+'))
-
-            node.compute.extend([sum_loop])
+            node.eval = input_set.storage.eval
+            node.compute = [Assignment(node.eval, val.eval, '+')]
         
         elif node.op_type == 'retval':
             input_set =  node.operators[0]
@@ -313,7 +303,7 @@ def gen_ir(node):
             ret_val =  node.operators[1]
             ret_val._gen_ir()
             node.eval = ret_val.eval
-            node.compute=[]
+            # node.compute=[]
 
     for d in node.decl:
         d.astnode = node

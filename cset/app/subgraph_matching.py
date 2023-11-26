@@ -213,7 +213,7 @@ def node_degree(pmtx, idx):
 
 
 
-def subgraph_matching(pattern_file_name):
+def binary_search(pattern_file_name):
 
     pmtx = read_pattern_file(pattern_file_name)
     partial_orders = symmetry_breaking(pmtx)
@@ -236,7 +236,7 @@ def subgraph_matching(pattern_file_name):
 
         def __call__(self, item):
             if self.level == pattern_size:
-                return  Set(count) #.setval(Set(count)+1)
+                return  Set(count).increment(1)
             if self.level==2:
                 v0 = item[0]
                 v1 = item[1]
@@ -247,9 +247,9 @@ def subgraph_matching(pattern_file_name):
                 if nb[0]==1 and nb[1]==1:
                     candidate_set = v0_nb.filter(BinarySearch(v1_nb))
                 elif nb[0]==0 and nb[1]==1:
-                    candidate_set = v1_nb.filter(BinarySearch(v0_nb))
+                    candidate_set = v1_nb.filter(BinarySearch(v0_nb, negative=True))
                 elif nb[0]==1 and nb[1]==0:
-                    candidate_set = v0_nb.filter(BinarySearch(v1_nb))
+                    candidate_set = v0_nb.filter(BinarySearch(v1_nb, negative=True))
 
                 if partial_orders[self.level]!=-1:
                     all_path = [v0, v1]
@@ -276,7 +276,7 @@ def subgraph_matching(pattern_file_name):
                     if nb[i]==1:
                         candidate_set = candidate_set.filter(BinarySearch(v_nb)) 
                     else:
-                        candidate_set = candidate_set.filter(BinarySearch(v_nb)) 
+                        candidate_set = candidate_set.filter(BinarySearch(v_nb, negative=True)) 
                 
                 if partial_orders[self.level]!=-1:
                     partial_node = all_path[partial_orders[self.level]]
@@ -296,3 +296,7 @@ def subgraph_matching(pattern_file_name):
     #res.name =  'p'+str(pattern_size)+ '_' + os.path.basename(pattern_file_name).split('.')[0]
     code = codegen.cpu.print_cpp(res._gen_ir())
     print(code)
+
+    torch_rowptr, torch_colidx, torch_edge_list, num_node, num_edges, num_jobs = read_graph(False)
+    d = run.cpu.compile_and_run(code, num_edges, torch_edge_list, num_node, torch_rowptr, num_edges, torch_colidx)
+    print(d)
