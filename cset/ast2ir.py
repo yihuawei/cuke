@@ -53,7 +53,6 @@ def _gen_and_detach_ir(ret):
 
 def gen_ir(node):
     if type(node) == Set:
-        # if len(node.storage.decl)==0 and len(node.storage.compute)==0:
         node.nelem._gen_ir()
         node.storage._gen_ir()
         helpers.get_ir_of_size(node.storage._size())
@@ -71,6 +70,9 @@ def gen_ir(node):
             input_set._gen_ir()
             if input_init_ast!=None:
                 input_init_ast._gen_ir()
+            node.storage._gen_ir()
+            node.nelem._gen_ir()
+            node.eval = node.storage.eval
             
             outer_loop = Loop(0, input_set.nelem.eval, 1, [])
             item.eval = bind(input_set.eval, outer_loop.iterate)
@@ -78,24 +80,20 @@ def gen_ir(node):
             func_compute = _gen_and_detach_ir(input_func_ast)
             outer_loop.body.extend(func_compute)
             
-            node.storage._gen_ir()
-            node.nelem._gen_ir()
-            node.eval = node.storage.eval
-
-            # node.decl.extend(func_decl)
-            # node.compute.extend([Assignment(node.nelem.eval, input_set.nelem.eval)])
             node.compute.extend([outer_loop])
 
             #Clear declaration of the result Set&Tensor
             node.storage.decl.clear()
-
         
-        elif node.op_type== 'filter':# or node.op_type == 'intersection' or node.op_type == 'difference':
+        elif node.op_type== 'filter':
             input_set = node.operators[0]
             input_cond_ast = node.operators[1]
             item = node.operators[2]
-            
             input_set._gen_ir()
+            node.storage._gen_ir()
+            node.nelem._gen_ir()
+            node.eval = node.storage.eval
+            res_size_ir = node.nelem.eval
 
             outer_loop = FilterLoop(0, input_set.nelem.eval, 1, [], None, [])
             item.eval = bind(input_set.eval,  outer_loop.iterate)
@@ -104,15 +102,10 @@ def gen_ir(node):
             outer_loop.body.extend(cond_compute)
             outer_loop.cond = input_cond_ast.eval
 
-            node.storage._gen_ir()
-            node.nelem._gen_ir()
-            node.eval = node.storage.eval
-            res_size = node.nelem
-
-            lhs = bind(node.eval, res_size.eval) 
+            lhs = bind(node.eval, res_size_ir) 
             rhs = item.eval
-            res_init = Assignment(res_size.eval, 0)
-            res_plus = Assignment(res_size.eval, 1, '+')
+            res_init = Assignment(res_size_ir, 0)
+            res_plus = Assignment(res_size_ir, 1, '+')
             if len(input_set._tensor_size())>1:
                 pre_loop = None
                 for i in range(1, len(input_set._tensor_size())):
@@ -129,133 +122,6 @@ def gen_ir(node):
 
             node.compute = [res_init, outer_loop]
         
-        elif node.op_type == 'intersection' or node.op_type == 'difference':
-            input_set = node.operators[0]
-            input_cond = node.operators[1]
-            input_axis = node.operators[2]
-            input_decl_ret = node.operators[3]
-            item = node.operators[4]
-            cond_ast = node.operators[5]
-
-            input_set._gen_ir()
-            input_axis._gen_ir()
-            assert(input_axis.eval.val==0)
-            
-            if cond_ast.op_type == 'binary_search':
-
-                outer_loop = FilterLoop(0, input_set.nelem[0].eval, 1, [], None, [])
-                item.eval = input_set.eval
-                item.eval = bind3(item.eval,  outer_loop.iterate)
-
-                cond_decl, cond_compute = _gen_and_detach_ir(cond_ast)
-                
-                node.storage._gen_ir()
-                node.eval = node.storage.eval
-
-                outer_loop.body.extend(cond_compute)
-
-                if node.op_type == 'difference':
-                    outer_loop.cond = Not(cond_ast.eval)
-                else:
-                    outer_loop.cond = cond_ast.eval
-
-                res_size = Scalar('int')
-
-                assignment = Assignment(bind3(node.eval, res_size), item.eval)
-                res_add_one = Assignment(res_size, 1, '+')
-                outer_loop.cond_body.extend([assignment, res_add_one])
-
-                node.decl.extend(cond_decl)
-                node.decl.extend([Decl(res_size)])  
-                node.compute = [Assignment(res_size, 0), outer_loop]
-
-                node.nelem[0].eval = res_size
-           
-            elif cond_ast.op_type == 'merge_search':
-                input_set1 = node.operators[0]
-                input_set2 = cond_ast.operators[0]
-                input_up = cond_ast.operators[2]
-
-                if input_up == -1:
-                    up_ir = sys.maxsize
-                else:
-                    input_up._gen_ir()
-                    up_ir = input_up.eval
-                
-                outer_loop = Loop(0, input_set1.nelem[0].eval, 1, [])
-                # item.eval = input_set1.eval
-                # item.eval = IndexOffset(item.eval,  outer_loop.iterate)
-
-                cond_decl, cond_compute = _gen_and_detach_ir(cond_ast)
-                
-                node.storage._gen_ir()
-                node.eval = node.storage.eval
-
-                # if(first[pi] >= up) break; \n\
-                # if(first[pi] >= up) break; \n\
-
-                if node.op_type == 'intersection':
-                    merge_template = \
-                        "if(first_smaller_second) continue; \n\
-                        else if (first_larger_second) { \n\
-                            while(pj_smaller_secondsize && first_larger_second){    \n\
-                               pj_increment;                                         \n\
-                            } \n\
-                        } \n\
-                        if(pj_equal_secondsize) break;  \n\
-                        if(first_equal_second) { \n\
-                            assignment\n\
-                            pos_increment; \n\
-                            continue; \n\
-                        }"
-                else:
-                    merge_template = \
-                        "if(first_smaller_second) { } \n\
-                        else if (first_larger_second) { \n\
-                            while(pj_smaller_secondsize && first_larger_second){    \n\
-                               pj_increment;                                           \n\
-                            } \n\
-                        } \n\
-                        if(pj_equal_secondsize) {  \n\
-                            assignment\n\
-                            pos_increment; \n\
-                            continue; \n\
-                        } \n\
-                        if(first_equal_second) { \n\
-                           pj_increment; \n\
-                        }  \n\
-                        else{ \n\
-                            assignment\n\
-                            pos_increment; \n\
-                        }"
-
-                pi_ir = outer_loop.iterate
-                pj_ir =  Scalar('int')
-                pos_ir =  Scalar('int')
-
-                input_set1.eval = bind3(input_set1.eval, pi_ir)
-                input_set2.eval = bind3(input_set2.eval, pj_ir)
-
-                keywords = {'first_smaller_second' : Expr(input_set1.eval, input_set2.eval, '<'),
-                            'first_larger_second': Expr(input_set1.eval, input_set2.eval, '>'),
-                            'first_equal_second' : Expr(input_set1.eval, input_set2.eval, '=='),
-                            'pj_smaller_secondsize': Expr(pj_ir,  input_set2.nelem[0].eval, '<'),
-                            'pj_equal_secondsize':  Expr(pj_ir,  input_set2.nelem[0].eval, '=='),
-                            'pj_increment': Expr(pj_ir,  1, '+='),
-                            'pos_increment': Expr(pos_ir,  1, '+='),
-                            'assignment': Assignment(bind3(node.eval, pos_ir), input_set1.eval)
-                            }
-                
-                node.decl.extend(cond_decl)
-                node.decl.extend([Decl(pj_ir), Decl(pos_ir)])  
-                
-                node.compute.extend(cond_compute)
-
-                outer_loop.body.append(Code(merge_template, keywords))
-                node.compute.extend([Assignment(pj_ir, 0), Assignment(pos_ir, 0), outer_loop])
-                node.nelem[0].eval = pos_ir
-
-
         elif node.op_type == 'binary_search':
             item = node.operators[0]
             item._gen_ir()
@@ -304,6 +170,89 @@ def gen_ir(node):
             ret_val._gen_ir()
             node.eval = ret_val.eval
             # node.compute=[]
+        
+        elif node.op_type == 'intersection' or node.op_type == 'difference':
+            input_set1 = node.operators[0]
+            input_func_ast = node.operators[1]
+            item = node.operators[2]
+            input_set1._gen_ir()
+            item._gen_ir()
+
+            input_set2 = input_func_ast.operators[1]
+            input_set2._gen_ir()
+
+            node.storage._gen_ir()
+            node.eval = node.storage.eval
+            node.nelem._gen_ir()
+
+            if input_func_ast.op_type == 'function_call':
+                if node.op_type == 'intersection':
+                    func_template = "res_size = SetIntersection(first_arr, first_size, second_arr, second_size, res_arr);"
+                else:
+                    func_template = "res_size = SetDifference(first_arr, first_size, second_arr, second_size, res_arr);"
+
+                keywords = {'first_arr' : bind(input_set1.eval, Literal(0, 'int')),
+                            'first_size': input_set1.nelem.eval,
+                            'second_arr' : bind(input_set2.eval, Literal(0, 'int')),
+                            'second_size': input_set2.nelem.eval,
+                            'res_arr':  bind(node.eval,Literal(0, 'int')),
+                            'res_size': node.nelem.eval}
+                node.compute.extend([Code(func_template, keywords)])
+            
+            elif input_func_ast.op_type == 'inline_code':
+                outer_loop = Loop(0, input_set1.nelem.eval, 1, [])
+                pi_ir = outer_loop.iterate
+                pj_ir =  Scalar('int')
+                pos_ir =  node.nelem.eval
+
+                if node.op_type == 'intersection':
+                    merge_template = \
+                        "if(first_smaller_second) continue; \n\
+                        else if (first_larger_second) { \n\
+                            while(pj_smaller_secondsize && first_larger_second){    \n\
+                                pj_increment;                                       \n\
+                            } \n\
+                        } \n\
+                        if(pj_equal_secondsize) break;  \n\
+                        if(first_equal_second) { \n\
+                            assignment\n\
+                            pos_increment; \n\
+                            continue; \n\
+                        }"
+                else:
+                    merge_template = \
+                        "if(first_smaller_second) { } \n\
+                        else if (first_larger_second) { \n\
+                            while(pj_smaller_secondsize && first_larger_second){    \n\
+                                pj_increment;                                           \n\
+                            } \n\
+                        } \n\
+                        if(pj_equal_secondsize) {  \n\
+                            assignment\n\
+                            pos_increment; \n\
+                            continue; \n\
+                        } \n\
+                        if(first_equal_second) { \n\
+                            pj_increment; \n\
+                        }  \n\
+                        else{ \n\
+                            assignment\n\
+                            pos_increment; \n\
+                        }"
+
+                keywords = {'first_smaller_second' : Expr(bind(input_set1.eval, pi_ir), bind(input_set2.eval, pj_ir), '<'),
+                            'first_larger_second': Expr(bind(input_set1.eval, pi_ir), bind(input_set2.eval, pj_ir), '>'),
+                            'first_equal_second' : Expr(bind(input_set1.eval, pi_ir), bind(input_set2.eval, pj_ir), '=='),
+                            'pj_smaller_secondsize': Expr(pj_ir,  input_set2.nelem.eval, '<'),
+                            'pj_equal_secondsize':  Expr(pj_ir,  input_set2.nelem.eval, '=='),
+                            'pj_increment': Expr(pj_ir,  1, '+='),
+                            'pos_increment': Expr(pos_ir,  1, '+='),
+                            'assignment': Assignment(bind(node.eval, pos_ir), bind(input_set1.eval, pi_ir))
+                            }
+                
+                node.decl.extend([Decl(pj_ir)])  
+                outer_loop.body.append(Code(merge_template, keywords))
+                node.compute.extend([Assignment(pj_ir, 0), Assignment(pos_ir, 0), outer_loop])
 
     for d in node.decl:
         d.astnode = node

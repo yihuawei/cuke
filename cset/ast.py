@@ -23,11 +23,17 @@ class Edgefilter():
         degree = self.rowptr[item[0]+1] - self.rowptr[item[0]]
         return SetOp('smaller', self.threshold, degree)
 
-class MergeSearch():
+class InlineCode():
     def __init__(self, target_set):
         self.target_set = target_set
     def __call__(self, item):
-        return SetOp('merge_search', item, self.target_set)
+        return SetOp('inline_code', item, self.target_set)
+
+class FunctionCall():
+    def __init__(self, target_set):
+        self.target_set = target_set
+    def __call__(self, item):
+        return SetOp('function_call', item, self.target_set)
 
 def PartialEdge(item):
     return SetOp('smaller', item[1], item[0])
@@ -93,7 +99,7 @@ class Set(ASTNode):
 class SetOp(Set):
     ids = {'apply': 0, 'filter':0, 'intersection':0, 'difference':0, \
             'binary_search':0, 'merge_search': 0, 'smaller':0, \
-            'add':0, 'setval':0, 'increment':0, 'retval':0}
+            'add':0, 'setval':0, 'increment':0, 'retval':0, 'inline_code':0, 'function_call':0}
 
     def __init__(self, op_type, *operators, **config):
         
@@ -123,11 +129,17 @@ class SetOp(Set):
             else:
                 super().__init__(Tensor(tensor_name, [config['capacity']] + item_size, dtype = input_set.dtype, is_arg=False))
                         
-        elif op_type == 'binary_search' or op_type == 'merge_search' or op_type == 'smaller':
+        elif op_type == 'binary_search' or op_type == 'smaller':
             for i in range(0, len(self.operators)):
                 if isinstance(self.operators[i], (int, float)):
                     self.operators[i] = Const(self.operators[i], type(self.operators[i]))
-            super().__init__(Var(tensor_name, 'bool', False))
+            super().__init__(Var(tensor_name, 'int', False))
+        
+        elif op_type == 'inline_code' or op_type == 'function_call':
+            for i in range(0, len(self.operators)):
+                if isinstance(self.operators[i], (int, float)):
+                    self.operators[i] = Const(self.operators[i], type(self.operators[i]))
+            super().__init__(Var(tensor_name, 'int', False))
                 
         elif op_type == 'increment':
             self.operators[1] = Const(self.operators[1], 'int')

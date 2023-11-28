@@ -15,6 +15,8 @@ def to_string(ir):
                 return f"({to_string(ir.left)} > {to_string(ir.right)} ? ({to_string(ir.left)}) : ({to_string(ir.right)}))"
             elif ir.op == 'smaller':
                 return f"({to_string(ir.left)} < {to_string(ir.right)} ? ({to_string(ir.left)}) : ({to_string(ir.right)}))"
+            else:
+                return f"({to_string(ir.left)}" + f" {ir.op} " + f"{to_string(ir.right)})"
         case 'Assignment':
             if ir.op is None:
                 return f"{to_string(ir.lhs)} = {to_string(ir.rhs)};\n"

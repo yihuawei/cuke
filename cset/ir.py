@@ -1,6 +1,5 @@
 from core.ir import *
 
-
 class FilterLoop(IR):
     filter_id = 0
     def __init__(self, start, end, step,  
@@ -33,25 +32,4 @@ class Not(IR):
     def __init__(self, dobject):
         self.dobject = dobject
 
-class Ref(IR):
-    nrefs = 0
-    def __init__(self, dobject):
-        self.dobject = dobject
-        self.ref_id = Ref.nrefs
-        Ref.nrefs += 1
-        self.dtype = self.dobject.dtype
-        self.size = dobject.size[:]
-
-    # def name(self):
-    #     return f'ref{self.ref_id}_{self.dobject.name()}'
-
-    # def addr(self):
-    #     return self.name()
-
-# class RefIndex(Index):
-#     nindices = 0
-#     def __init__(self, dobject, index=None, ind_arr=None):
-#         super.__init__(dobject, index, ind_arr)
-#         if ind_arr == None:
-#             if type(dobject)==Ref:
-#                 self.size = []
+# class 

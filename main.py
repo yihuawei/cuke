@@ -6,4 +6,4 @@ from test import examples
 from cset.app import subgraph_matching
 
 if __name__ == "__main__":
-    subgraph_matching.binary_search(sys.argv[1])
+    subgraph_matching.merge_search(sys.argv[1])
