@@ -4,6 +4,8 @@ import os
 
 from test import examples
 from cset.app import subgraph_matching
+from cset.app import decomine
 
 if __name__ == "__main__":
-    subgraph_matching.merge_search(sys.argv[1])
+    subgraph_matching.SubgraphMatchingEdgeInduced(sys.argv[1])
+    # decomine.p3_edge_induced2()

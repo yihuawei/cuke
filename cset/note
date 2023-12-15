@@ -1,0 +1,157 @@
+
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+
+    c1 = N(v0)
+    for(i1=0; i1<c1.size; i1++){
+        v1 = c1[i1]
+        
+        c2 = N(v0) - {v1}
+        for(i2=0; i2<c2.size; i2++){
+            v2 = c2[i2]
+            
+            c3 = N(v0) - {v0, v1}
+            for(i3=0; i3<c3.size; i3++){
+                v3 = c3[i3]
+                count++;
+            }
+        }
+    }
+
+}
+
+//去重 输出结果
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+    c1 = N(v0)
+    c2 =  N(v0)
+    c3 =  N(v0)
+
+    c1 = c1 - {v0}
+    for(i1=0; i1<c1.size; i1++){
+        v1 = c1[i1]
+        
+        c2 = c2 - {v0, v1}
+        for(i2=0; i2<c2.size; i2++){
+            v2 = c2[i2]
+            
+            c3 = c3 - {v0, v1, v2}
+            for(i3=0; i3<c3.size; i3++){
+                v3 = c3[i3]
+                
+                count++;
+            }
+        }
+    }
+}
+
+//去重 不输出结果 
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+    
+    c1 = N(v0)
+    c2 =  N(v0)
+    c3 =  N(v0)
+
+    c1 = c1 - {v0}
+    for(i1=0; i1<c1.size; i1++){
+        v1 = c1[i1]
+        
+        c2 = c2 - {v0, v1}
+        for(i2=0; i2<c2.size; i2++){
+            v2 = c2[i2]
+            
+            c3 = c3 - {v0, v1, v2}
+            for(i3=0; i3<c3.size; i3++){
+                v3 = c3[i3]
+                
+                count++;
+            }
+        }
+    }
+}
+
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+    
+    c1 = N(v0)
+    c2 =  N(v0)
+    c3 =  N(v0)
+
+    for(i1=0; i1<c1.size; i1++){
+        v1 = c1[i1]
+        if(v1==v0) continue
+        
+        for(i2=0; i2<c2.size; i2++){
+            v2 = c2[i2]
+            if(v2==v1 || v2==v0) continue
+            
+            for(i3=0; i3<c3.size; i3++){
+                v3 = c3[i3]
+                if(v3==v2 || v3==v1 || v3==v0) continue
+                
+                count++;
+            }
+        }
+    }
+
+}
+
+
+//不去重 输出结果
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+    
+    c1 = N(v0)
+    c2 = N(v0)
+    c3 = N(v0) 
+    for(i1=0; i1<c1.size; i1++){
+        v1 = c1[i1]
+        for(i2=0; i2<c2.size; i2++){
+            v2 = c2[i2]
+            for(i3=0; i3<c3.size; i3++){
+                v3 = c3[i3]
+                output{v0, v1, v2, v3}
+                count++;
+            }
+        }
+    }
+}
+
+
+//不去重 不输出结果
+c0 = all_vertices
+for(i0=0; i0<c0.size; i0++){
+    v0 = c0[i0]
+    
+    c1 = N(v0)
+    c2 = N(v0)
+    c3 = N(v0) 
+    for(i1=0; i1<c1.size; i1++){
+        for(i2=0; i2<c2.size; i2++){
+            for(i3=0; i3<c3.size; i3++){
+                count++;
+            }
+        }
+    }
+}
+
+
+
+for(v0 in V){
+    for(v1 in N(v0)){
+
+        N(v0)*N(v1)
+        N(v0)*N(v1)
+        for(v2 in ){
+
+            
+            for(v3 in *N(v2)){
+
+
+        }}}}

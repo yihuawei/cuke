@@ -122,7 +122,7 @@ def node_degree(pmtx, idx):
             res+=1
     return res
 
-def merge_search(pattern_file_name):
+def SubgraphMatchingVertexInduced(pattern_file_name):
 
     pmtx = read_pattern_file(pattern_file_name)
     partial_orders = symmetry_breaking(pmtx)
@@ -206,7 +206,7 @@ def merge_search(pattern_file_name):
     
     #res.name =  'p'+str(pattern_size)+ '_' + os.path.basename(pattern_file_name).split('.')[0]
     res._gen_ir()
-    parallelize(res)
+    # parallelize(res)
     code = codegen.cpu.print_cpp(res)
     print(code)
 
@@ -215,10 +215,11 @@ def merge_search(pattern_file_name):
     print(d)
 
 
-def binary_search(pattern_file_name):
+def SubgraphMatchingEdgeInduced(pattern_file_name):
 
     pmtx = read_pattern_file(pattern_file_name)
     partial_orders = symmetry_breaking(pmtx)
+    print(partial_orders)
     pattern_size = len(pmtx)
 
     num_node =  Var(name='num_node', dtype='int', is_arg=True)
@@ -228,9 +229,13 @@ def binary_search(pattern_file_name):
     rowptr = Tensor('rowptr', (num_node+1,), dtype='int')
     colidx = Tensor('colidx', (num_edge,), dtype='int')
     edge_list =  Set(Tensor('edge_list', (num_jobs, 2), dtype='int'))
-    count = Var(name='count', dtype='int', is_arg=False)
+   
     
+    count = Var(name='count', dtype='int', is_arg=False)
+    path = Set(Tensor('path', (pattern_size,), dtype='int'))
+
     class inner_subgraph_matching:
+
         def __init__(self, level, *path):
              self.level = level
              self.path = list(*path)
@@ -246,58 +251,129 @@ def binary_search(pattern_file_name):
                 nb = pmtx[self.level]
 
                 if nb[0]==1 and nb[1]==1:
-                    candidate_set = v0_nb.filter(BinarySearch(v1_nb))
-                elif nb[0]==0 and nb[1]==1:
-                    candidate_set = v1_nb.filter(BinarySearch(v0_nb, negative=True))
-                elif nb[0]==1 and nb[1]==0:
-                    candidate_set = v0_nb.filter(BinarySearch(v1_nb, negative=True))
-
-                if partial_orders[self.level]!=-1:
-                    all_path = [v0, v1]
-                    partial_node = all_path[partial_orders[self.level]]
-                    candidate_set = candidate_set.filter(SmallerThan(partial_node))  
+                    candidate_set = v0_nb.intersection(v1_nb)
+                elif nb[1]==1:
+                    candidate_set = v1_nb
+                elif nb[0]==1:
+                    candidate_set = v0_nb
                 return candidate_set.apply(inner_subgraph_matching(self.level+1, [v0, v1]))
             else:
                 all_path = self.path + [item]
                 nb = pmtx[self.level]
-
-                first_nb_idx= 0
+                candidate_set = None
                 for i in range(len(all_path)):
-                    if nb[i]!=0:
-                        first_nb_idx = i
-                        break
-                first_node = all_path[first_nb_idx]
-                candidate_set = Set(colidx[rowptr[first_node]:rowptr[first_node+1]])
-
-                for i in range(len(all_path)):
-                    if i==first_nb_idx:
-                        continue
                     v =  all_path[i]
                     v_nb =  Set(colidx[rowptr[v]:rowptr[v+1]])
                     if nb[i]==1:
-                        candidate_set = candidate_set.filter(BinarySearch(v_nb)) 
-                    else:
-                        candidate_set = candidate_set.filter(BinarySearch(v_nb, negative=True)) 
+                        if candidate_set == None:
+                            candidate_set = v_nb
+                        else:
+                            candidate_set = candidate_set.intersection(v_nb) 
                 
-                if partial_orders[self.level]!=-1:
-                    partial_node = all_path[partial_orders[self.level]]
-                    candidate_set = candidate_set.filter(SmallerThan(partial_node))
                 return candidate_set.apply(inner_subgraph_matching(self.level+1, self.path + [item]))
     
     def init_vals():
         return setval(count, 0)
 
     if partial_orders[1]==0:
-        edge_list = edge_list.filter(PartialEdge)
+        edge_list = edge_list.filter(PartialEdge, k_capacity=1000000)
     
-    edge_list = edge_list.filter(Edgefilter(rowptr, node_degree(pmtx, 0)-1))
+    edge_list = edge_list.filter(Edgefilter(rowptr, node_degree(pmtx, 0)-1), k_capacity=1000000)
 
-    res = edge_list.apply(inner_subgraph_matching(2), init=init_vals).retval(count)
-    
-    #res.name =  'p'+str(pattern_size)+ '_' + os.path.basename(pattern_file_name).split('.')[0]
-    code = codegen.cpu.print_cpp(res._gen_ir())
+    res = edge_list.apply(inner_subgraph_matching(2), init=init_vals).retval( Var(name='return_val', dtype='int', is_arg=False))
+    res._gen_ir()
+    # parallelize(res)
+    code = codegen.cpu.print_cpp(res)
     print(code)
 
-    torch_rowptr, torch_colidx, torch_edge_list, num_node, num_edges, num_jobs = read_graph(False)
-    d = run.cpu.compile_and_run(code, num_edges, torch_edge_list, num_node, torch_rowptr, num_edges, torch_colidx)
-    print(d)
+    # torch_rowptr, torch_colidx, torch_edge_list, num_node, num_edges, num_jobs = read_graph(False)
+    # d = run.cpu.compile_and_run(code, num_edges, torch_edge_list, num_node, torch_rowptr, num_edges, torch_colidx)
+    # print(d)
+
+
+# def binary_search(pattern_file_name):
+
+#     pmtx = read_pattern_file(pattern_file_name)
+#     partial_orders = symmetry_breaking(pmtx)
+#     pattern_size = len(pmtx)
+
+#     num_node =  Var(name='num_node', dtype='int', is_arg=True)
+#     num_edge =  Var(name='num_edge', dtype='int', is_arg=True)
+#     num_jobs =  Var(name='num_jobs', dtype='int', is_arg=True)
+    
+#     rowptr = Tensor('rowptr', (num_node+1,), dtype='int')
+#     colidx = Tensor('colidx', (num_edge,), dtype='int')
+#     edge_list =  Set(Tensor('edge_list', (num_jobs, 2), dtype='int'))
+#     count = Var(name='count', dtype='int', is_arg=False)
+    
+#     class inner_subgraph_matching:
+#         def __init__(self, level, *path):
+#              self.level = level
+#              self.path = list(*path)
+
+#         def __call__(self, item):
+#             if self.level == pattern_size:
+#                 return  Set(count).increment(1)
+#             if self.level==2:
+#                 v0 = item[0]
+#                 v1 = item[1]
+#                 v0_nb =  Set(colidx[rowptr[v0]:rowptr[v0+1]])
+#                 v1_nb =  Set(colidx[rowptr[v1]:rowptr[v1+1]])
+#                 nb = pmtx[self.level]
+
+#                 if nb[0]==1 and nb[1]==1:
+#                     candidate_set = v0_nb.filter(BinarySearch(v1_nb))
+#                 elif nb[0]==0 and nb[1]==1:
+#                     candidate_set = v1_nb.filter(BinarySearch(v0_nb, negative=True))
+#                 elif nb[0]==1 and nb[1]==0:
+#                     candidate_set = v0_nb.filter(BinarySearch(v1_nb, negative=True))
+
+#                 if partial_orders[self.level]!=-1:
+#                     all_path = [v0, v1]
+#                     partial_node = all_path[partial_orders[self.level]]
+#                     candidate_set = candidate_set.filter(SmallerThan(partial_node))  
+#                 return candidate_set.apply(inner_subgraph_matching(self.level+1, [v0, v1]))
+#             else:
+#                 all_path = self.path + [item]
+#                 nb = pmtx[self.level]
+
+#                 first_nb_idx= 0
+#                 for i in range(len(all_path)):
+#                     if nb[i]!=0:
+#                         first_nb_idx = i
+#                         break
+#                 first_node = all_path[first_nb_idx]
+#                 candidate_set = Set(colidx[rowptr[first_node]:rowptr[first_node+1]])
+
+#                 for i in range(len(all_path)):
+#                     if i==first_nb_idx:
+#                         continue
+#                     v =  all_path[i]
+#                     v_nb =  Set(colidx[rowptr[v]:rowptr[v+1]])
+#                     if nb[i]==1:
+#                         candidate_set = candidate_set.filter(BinarySearch(v_nb)) 
+#                     else:
+#                         candidate_set = candidate_set.filter(BinarySearch(v_nb, negative=True)) 
+                
+#                 if partial_orders[self.level]!=-1:
+#                     partial_node = all_path[partial_orders[self.level]]
+#                     candidate_set = candidate_set.filter(SmallerThan(partial_node))
+#                 return candidate_set.apply(inner_subgraph_matching(self.level+1, self.path + [item]))
+    
+#     def init_vals():
+#         return setval(count, 0)
+
+#     if partial_orders[1]==0:
+#         edge_list = edge_list.filter(PartialEdge)
+    
+#     edge_list = edge_list.filter(Edgefilter(rowptr, node_degree(pmtx, 0)-1))
+
+#     res = edge_list.apply(inner_subgraph_matching(2), init=init_vals).retval(count)
+    
+#     #res.name =  'p'+str(pattern_size)+ '_' + os.path.basename(pattern_file_name).split('.')[0]
+#     code = codegen.cpu.print_cpp(res._gen_ir())
+#     print(code)
+
+#     torch_rowptr, torch_colidx, torch_edge_list, num_node, num_edges, num_jobs = read_graph(False)
+#     d = run.cpu.compile_and_run(code, num_edges, torch_edge_list, num_node, torch_rowptr, num_edges, torch_colidx)
+#     print(d)

@@ -171,6 +171,46 @@ def gen_ir(node):
             node.eval = ret_val.eval
             # node.compute=[]
         
+        elif node.op_type == 'num_element':
+            input_set = node.operators[0]
+            input_set._gen_ir()
+            node.eval = input_set.nelem.eval
+        
+        elif node.op_type == 'add' or node.op_type == 'sub' or node.op_type == 'mul':
+            input_set1 = node.operators[0]
+            input_set2 = node.operators[1]
+            input_set1._gen_ir()
+            input_set2._gen_ir()
+
+            node.eval = Scalar(node.dtype)
+            node.decl = [Decl(node.eval)]
+
+            if node.op_type == 'add':
+                node.compute = [Assignment(node.eval, Expr(input_set1.eval, input_set2.eval, '+'))]
+            elif node.op_type == 'sub':
+                node.compute = [Assignment(node.eval, Expr(input_set1.eval, input_set2.eval, '-'))]
+            elif node.op_type == 'mul':
+                node.compute = [Assignment(node.eval, Expr(input_set1.eval, input_set2.eval, '*'))]
+        
+        elif node.op_type == 'getitem':
+            input_set = node.operators[0]
+            idx = node.operators[1]
+            input_set._gen_ir()
+            idx._gen_ir()
+            node.eval =  bind(input_set.eval,  idx.eval)
+        
+        # elif node.op_type == 'setitem':
+        #     input_set = node.operators[0]
+        #     idx = node.operators[1]
+        #     val = node.operators[2]
+        #     input_set._gen_ir()
+        #     idx._gen_ir()
+        #     val._gen_ir()
+
+        #     node.eval =  bind(input_set.eval,  outer_loop.iterate)
+        #     node.compute = [Assignment()]
+
+
         elif node.op_type == 'intersection' or node.op_type == 'difference':
             input_set1 = node.operators[0]
             input_func_ast = node.operators[1]
@@ -197,7 +237,7 @@ def gen_ir(node):
                             'second_size': input_set2.nelem.eval,
                             'res_arr':  bind(node.eval,Literal(0, 'int')),
                             'res_size': node.nelem.eval}
-                node.compute.extend([Code(func_template, keywords)])
+                node.compute = [Code(func_template, keywords)]
             
             elif input_func_ast.op_type == 'inline_code':
                 outer_loop = Loop(0, input_set1.nelem.eval, 1, [])
